@@ -84,6 +84,8 @@
           <div class="report-meta">
             <span>{{ daySheetData.date || selectedDate }}</span>
             <span>{{ daySheetData.shop?.id || selectedShopId }}</span>
+            <span>Submitted By: {{ daySheetData.submittedByName || daySheetData.cashier || 'N/A' }} ({{ daySheetData.submittedByRole || 'Cashier' }})</span>
+            <span *ngIf="daySheetData.submittedByRole === 'Owner'">Owner Contact: {{ daySheetData.submittedByContact || daySheetData.submittedByEmail || 'N/A' }}</span>
           </div>
         </div>
 
@@ -110,22 +112,16 @@
           <table class="report-table">
             <thead>
               <tr>
+                <th>S.No</th>
                 <th>Brand</th>
-                <th>Code</th>
-                <th>Sale Value</th>
-                <th>Expenses</th>
-                <th>Profit</th>
-                <th>Net</th>
+                <th>Brand Sale Value</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let record of daySheetData.records || []">
-                <td>{{ record.brand }}</td>
-                <td>{{ record.code }}</td>
+              <tr *ngFor="let record of daySheetData.records || []; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td>{{ record.code }} - {{ record.brand }}</td>
                 <td>₹ {{ getRecordSale(record).toFixed(2) }}</td>
-                <td>₹ {{ (daySheetData.totalExpenses || 0).toFixed(2) }}</td>
-                <td>₹ {{ (daySheetData.additionalProfit || 0).toFixed(2) }}</td>
-                <td>₹ {{ (daySheetData.grandTotal || 0).toFixed(2) }}</td>
               </tr>
             </tbody>
           </table>

@@ -1,9 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { combineLatest } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
-import { BusinessDataService } from '../../services/business-data.service';
+import { BusinessDataService, InvoiceRecord, DaySheetRecord } from '../../services/business-data.service';
 import { environment } from '../../../environments/environment';
 
 interface SheetSize { size: string; opening: number; sales: number; closing: number; price: number; amount: number; balanceEntered?: boolean; }
@@ -13,11 +16,11 @@ interface ProfitRow { name: string; value: number; comment: string; }
 interface CashDetails { cashDeposit: number; phonePay: number; comments: string; bankChallanReceipt: string; }
 
 @Component({ selector: 'app-day-sheet', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './day-sheet.component.html', styleUrls: ['./day-sheet.component.scss'] })
-export class DaySheetComponent {
+export class DaySheetComponent implements OnInit {
   shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{"id":"KKD41","owner":"Y Bathalaswamy"}');
   date = sessionStorage.getItem('vinoledger.date') || new Date().toISOString().slice(0, 10);
-  records: SheetRecord[] = this.loadUniqueRecords();
-  sizes = ['1L', 'Q', 'P', 'N', 'D'];
+  records: SheetRecord[] = this.loadUniqueRecords([], []);
+  isLoadingRecords = true;
   expenseDialogOpen = false;
   additionalProfitDialogOpen = false;
   cashDetailsDialogOpen = false;
@@ -36,28 +39,36 @@ export class DaySheetComponent {
     this.removeLegacyApplicationShare();
   }
 
-  sizeRecord(record: SheetRecord, size: string) {
-    return record.sizes.find(item =>
-      item.size.startsWith(
-        size === '1L' ? '1000' : size === 'Q' ? '750' : size === 'P' ? '375' : size === 'N' ? '180' : '90'
-      )
-    );
+  ngOnInit() {
+    this.refreshRecordsFromServer();
   }
 
-  getSizeValue(record: SheetRecord, size: string, type: 'opening' | 'sales' | 'closing' | 'price') {
-    const item = this.sizeRecord(record, size);
-    return item ? item[type] : 0;
+  private refreshRecordsFromServer() {
+    this.isLoadingRecords = true;
+    combineLatest([
+      this.businessData.getInvoices().pipe(catchError(() => of([] as InvoiceRecord[]))),
+      this.businessData.getDaySheets().pipe(catchError(() => of([] as DaySheetRecord[])))
+    ]).subscribe(([invoices, daySheets]) => {
+      this.records = this.loadUniqueRecords(invoices, daySheets);
+      this.isLoadingRecords = false;
+    });
   }
 
-  updateBalance(record: SheetRecord, size: string, value: number) {
-    const item = this.sizeRecord(record, size);
-    if (!item) return;
+  updateBalanceForSize(record: SheetRecord, item: SheetSize, value: number) {
     const enteredBalance = Math.max(0, Number(value) || 0);
     item.closing = Math.min(item.opening, enteredBalance);
     item.balanceEntered = true;
     item.sales = Math.max(0, item.opening - item.closing);
     item.amount = item.sales * item.price;
     this.persistRecords();
+  }
+
+  hasStock(record: SheetRecord) {
+    return record.sizes.some(item => (item.opening || 0) > 0 || (item.closing || 0) > 0);
+  }
+
+  get visibleRecords() {
+    return this.records.filter(record => this.hasStock(record));
   }
 
   totalAmount(record: SheetRecord) {
@@ -198,11 +209,18 @@ export class DaySheetComponent {
       return;
     }
 
+    const currentUser = this.auth.currentUser();
+    const submittedByRole = currentUser?.role === 'Admin' ? 'Admin' : currentUser?.role === 'Owner' ? 'Owner' : 'Cashier';
     const submission = {
       shop: this.shop,
       shopId: String(this.shop.id || ''),
       date: this.date,
-      cashier: this.auth.currentUser()?.name || 'Cashier',
+      cashier: currentUser?.name || 'Cashier',
+      submittedByName: currentUser?.name || 'Cashier',
+      submittedByRole,
+      submittedByContact: currentUser?.contactNumber || '',
+      submittedByEmail: currentUser?.email || '',
+      ownerName: this.shop.owner || '',
       records: this.records,
       expenses: JSON.parse(sessionStorage.getItem('vinoledger.expenseEntries') || '[]'),
       additionalProfitRows: this.additionalProfitRows,
@@ -328,13 +346,13 @@ export class DaySheetComponent {
     }
   }
 
-  private loadUniqueRecords(): SheetRecord[] {
+  private loadUniqueRecords(remoteInvoices: InvoiceRecord[], remoteDaySheets: DaySheetRecord[]): SheetRecord[] {
     const currentKey = this.daySheetKey();
     const legacyKey = `vinoledger.daySheet.${this.normalize(String(this.shop.id || 'KKD41'))}`;
     const raw = sessionStorage.getItem(currentKey) ?? sessionStorage.getItem(legacyKey) ?? '[]';
     let saved = JSON.parse(raw);
     if (!Array.isArray(saved)) {
-      return [];
+      saved = [];
     }
 
     const seenNames = new Set<string>();
@@ -353,7 +371,7 @@ export class DaySheetComponent {
       return true;
     });
 
-    const records = this.applyStockFlow(uniqueRecords);
+    const records = this.applyStockFlow(uniqueRecords, remoteInvoices, remoteDaySheets);
     sessionStorage.setItem(currentKey, JSON.stringify(records));
     return records;
   }
@@ -366,9 +384,9 @@ export class DaySheetComponent {
     return `vinoledger.daySheet.${this.normalize(String(this.shop.id || 'KKD41'))}.${this.normalize(String(this.date || new Date().toISOString().slice(0, 10)) )}`;
   }
 
-  private applyStockFlow(saved: any[]): SheetRecord[] {
-    const invoices = this.readInvoices();
-    const previous = this.readPreviousClosing();
+  private applyStockFlow(saved: any[], remoteInvoices: InvoiceRecord[], remoteDaySheets: DaySheetRecord[]): SheetRecord[] {
+    const invoices = this.readInvoices(remoteInvoices);
+    const previous = this.readPreviousClosing(remoteDaySheets);
     const byProduct = new Map<string, SheetRecord>();
 
     invoices.forEach((invoice: any) => {
@@ -424,21 +442,34 @@ export class DaySheetComponent {
           }
         item.amount = item.sales * item.price;
         return item;
-      });
+      }).sort((a, b) => this.sizeMl(b.size) - this.sizeMl(a.size));
       return record;
     });
   }
 
-  private readInvoices(): any[] {
+  private sizeMl(size: string) {
+    return Number(String(size).replace(/[^0-9.]/g, '')) || 0;
+  }
+
+  private readInvoices(remoteInvoices: InvoiceRecord[]): any[] {
+    let localInvoices: any[] = [];
     try {
-      const invoices = JSON.parse(localStorage.getItem('vinoledger.invoices') || '[]');
-      return (Array.isArray(invoices) ? invoices : []).filter((invoice: any) =>
-        this.normalize(String(invoice.shopId || '')) === this.normalize(String(this.shop.id || '')) &&
-        String(invoice.date || '') <= this.date
-      );
+      const parsed = JSON.parse(localStorage.getItem('vinoledger.invoices') || '[]');
+      localInvoices = Array.isArray(parsed) ? parsed : [];
     } catch {
-      return [];
+      localInvoices = [];
     }
+
+    const byId = new Map<string, any>();
+    [...localInvoices, ...remoteInvoices].forEach((invoice: any) => {
+      const key = String(invoice?.id || invoice?.invoiceNumber || `${invoice?.shopId}-${invoice?.date}-${invoice?.referenceNo || ''}`);
+      byId.set(key, invoice);
+    });
+
+    return [...byId.values()].filter((invoice: any) =>
+      this.normalize(String(invoice.shopId || '')) === this.normalize(String(this.shop.id || '')) &&
+      String(invoice.date || '') <= this.date
+    );
   }
 
   private lookupMrp(brandName: string, sizeName: string) {
@@ -452,19 +483,28 @@ export class DaySheetComponent {
     }
   }
 
-  private readPreviousClosing() {
+  private readPreviousClosing(remoteDaySheets: DaySheetRecord[]) {
     const closing = new Map<string, number>();
+    let localHistory: any[] = [];
     try {
-      const history = JSON.parse(localStorage.getItem('vinoledger.daySheetSubmissions') || '[]');
-      const prior = (Array.isArray(history) ? history : [])
-        .filter((submission: any) => this.normalize(String(submission.shopId || '')) === this.normalize(String(this.shop.id || '')) && String(submission.date || '') < this.date)
-        .sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)))[0];
-      (prior?.records || []).forEach((record: any) => (record.sizes || []).forEach((size: any) => {
-        closing.set(`${this.normalize(record.code)}|${this.normalize(record.brand)}|${size.size}`, Number(size.closing || 0));
-      }));
+      const parsed = JSON.parse(localStorage.getItem('vinoledger.daySheetSubmissions') || '[]');
+      localHistory = Array.isArray(parsed) ? parsed : [];
     } catch {
-      return closing;
+      localHistory = [];
     }
+
+    const byId = new Map<string, any>();
+    [...localHistory, ...remoteDaySheets].forEach((submission: any) => {
+      const key = String(submission?.id || `${submission?.shopId}-${submission?.date}`);
+      byId.set(key, submission);
+    });
+
+    const prior = [...byId.values()]
+      .filter((submission: any) => this.normalize(String(submission.shopId || '')) === this.normalize(String(this.shop.id || '')) && String(submission.date || '') < this.date)
+      .sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)))[0];
+    (prior?.records || []).forEach((record: any) => (record.sizes || []).forEach((size: any) => {
+      closing.set(`${this.normalize(record.code)}|${this.normalize(record.brand)}|${size.size}`, Number(size.closing || 0));
+    }));
     return closing;
   }
 

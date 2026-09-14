@@ -24,12 +24,17 @@
       </div>
     </div>
 
-    <div class="empty" *ngIf="!records.length">
+    <div class="empty" *ngIf="isLoadingRecords">
+      <strong>Loading day sheet...</strong>
+      <span>Fetching invoice and stock data.</span>
+    </div>
+
+    <div class="empty" *ngIf="!isLoadingRecords && !visibleRecords.length">
       <strong>No entries saved yet</strong>
       <span>Save a brand sale entry to build this day's sheet.</span>
     </div>
 
-    <div class="table-wrap" *ngIf="records.length">
+    <div class="table-wrap" *ngIf="!isLoadingRecords && visibleRecords.length">
       <div class="table-scroll">
       <table>
         <thead>
@@ -45,7 +50,7 @@
         </thead>
 
         <tbody>
-          <tr *ngFor="let record of records; let i = index">
+          <tr *ngFor="let record of visibleRecords; let i = index">
             <td>{{ i + 1 }}</td>
             <td class="brand-cell">
               <strong>{{ record.brand }}</strong>
@@ -54,36 +59,36 @@
 
             <td class="stack-cell">
               <div class="size-stack">
-                <div class="size-row" *ngFor="let size of sizes">
-                  <span>{{ size }}</span>
-                  <strong>{{ getSizeValue(record, size, 'opening') }}</strong>
+                <div class="size-row" *ngFor="let item of record.sizes">
+                  <span>{{ item.size }}</span>
+                  <strong>{{ item.opening }}</strong>
                 </div>
               </div>
             </td>
 
             <td class="stack-cell">
               <div class="size-stack editable-stack">
-                <div class="size-row" *ngFor="let size of sizes">
-                  <span>{{ size }}</span>
-                  <input type="number" min="0" [value]="sizeRecord(record, size)?.balanceEntered ? getSizeValue(record, size, 'closing') : ''" (input)="updateBalance(record, size, +$any($event.target).value)" [attr.aria-label]="record.brand + ' ' + size + ' balance stock'" />
+                <div class="size-row" *ngFor="let item of record.sizes">
+                  <span>{{ item.size }}</span>
+                  <input type="number" min="0" [value]="item.balanceEntered ? item.closing : ''" (input)="updateBalanceForSize(record, item, +$any($event.target).value)" [attr.aria-label]="record.brand + ' ' + item.size + ' balance stock'" />
                 </div>
               </div>
             </td>
 
             <td class="stack-cell">
               <div class="size-stack">
-                <div class="size-row" *ngFor="let size of sizes">
-                  <span>{{ size }}</span>
-                  <strong>{{ getSizeValue(record, size, 'sales') }}</strong>
+                <div class="size-row" *ngFor="let item of record.sizes">
+                  <span>{{ item.size }}</span>
+                  <strong>{{ item.sales }}</strong>
                 </div>
               </div>
             </td>
 
             <td class="stack-cell">
               <div class="size-stack price-stack">
-                <div class="size-row" *ngFor="let size of sizes">
-                  <span>{{ size }}</span>
-                  <strong>₹ {{ getSizeValue(record, size, 'price') | number }}</strong>
+                <div class="size-row" *ngFor="let item of record.sizes">
+                  <span>{{ item.size }}</span>
+                  <strong>₹ {{ item.price | number }}</strong>
                 </div>
               </div>
             </td>

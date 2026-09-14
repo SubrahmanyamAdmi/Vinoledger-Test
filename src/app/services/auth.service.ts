@@ -2,7 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, getFirestore, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getFirestore, setDoc, serverTimestamp } from 'firebase/firestore';
 import { from, of, throwError } from 'rxjs';
 import { switchMap, tap, catchError } from 'rxjs/operators';
 import { LoginRequest, LoginResponse, User, UserRole } from '../models/auth.model';
@@ -166,6 +166,28 @@ export class AuthService {
 
   getRegisteredShops(): any[] {
     return this.readStorage<any[]>('vinoledger.registered.shops', []);
+  }
+
+  async refreshRegisteredShopsFromFirestore(): Promise<any[]> {
+    if (!this.isFirebaseConfigured()) {
+      return this.getRegisteredShops();
+    }
+
+    try {
+      const snapshot = await getDocs(collection(this.firestore, 'shops'));
+      const remoteShops = snapshot.docs.map((docSnapshot) => ({ ...docSnapshot.data(), id: docSnapshot.id, shopId: docSnapshot.id }));
+      const existingShops = this.getRegisteredShops();
+      const byId = new Map<string, any>();
+      [...existingShops, ...remoteShops].forEach((shop: any) => {
+        const key = String(shop.shopId || shop.id || '').toUpperCase();
+        if (key) byId.set(key, shop);
+      });
+      const merged = [...byId.values()];
+      localStorage.setItem('vinoledger.registered.shops', JSON.stringify(merged));
+      return merged;
+    } catch {
+      return this.getRegisteredShops();
+    }
   }
 
   private isFirebaseConfigured() {
