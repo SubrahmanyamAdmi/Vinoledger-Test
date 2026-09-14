@@ -1,0 +1,63 @@
+<div class="users-container">
+  <header class="header-profile">
+    <div class="user-profile">
+      <span class="profile-icon">👤</span>
+      <div class="profile-info">
+        <div class="profile-label">Admin Console</div>
+        <div class="profile-name">System Admin</div>
+      </div>
+    </div>
+    <button class="logout-btn">← Logout</button>
+  </header>
+
+  <div class="users-header">
+    <h1>User Management</h1>
+    <p class="subtitle">Manage system access and roles</p>
+  </div>
+
+  <div class="header-actions">
+    <input type="text" class="search-box" placeholder="Search by name or email...">
+    <button class="add-btn" (click)="addNewUser()">Add New User</button>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>USER NAME</th>
+          <th>ROLE</th>
+          <th>EMAIL ADDRESS</th>
+          <th>SHOP</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users">
+          <td class="user-cell">
+            <div class="user-info">
+              <div class="user-name">{{ user.name }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="role-badge" [ngClass]="'role-' + user.role.toLowerCase()">
+              {{ user.role }}
+            </span>
+          </td>
+          <td class="email-cell">{{ user.email }}</td>
+          <td>{{ user.shop }}</td>
+          <td class="action-cell">
+            <button class="delete-btn" (click)="deleteUser(user.id)">🗑️</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer class="footer-info">
+    <span class="total-text">Total Users: <strong>{{ totalUsers }}</strong></span>
+  </footer>
+
+  <div class="back-button">
+    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+  </div>
+</div>

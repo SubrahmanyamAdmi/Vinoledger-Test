@@ -1,0 +1,164 @@
+<div class="day-sheet-container">
+  <header class="header">
+    <div>
+      <h1>Admin Console</h1>
+      <div class="user-info">
+        <span class="user-name">Rajesh Kumar (Cashier)</span>
+        <span class="user-role">Cashier Role</span>
+      </div>
+    </div>
+    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+  </header>
+
+  <div class="content-wrapper">
+    <div class="management-panel">
+      <div class="shop-selector-block">
+        <div class="form-group form-inline">
+          <select id="shop-select" [(ngModel)]="selectedShopId" class="form-control select-control">
+            <option value="" disabled>{{ loadingShops ? 'Loading shops...' : (shopLoadError || 'Select shop') }}</option>
+            <option *ngFor="let shop of shops" [value]="shop.id">
+              {{ shop.owner }} - {{ shop.id }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="calendar-row">
+        <div class="calendar-card">
+          <div class="calendar-header">
+            <button type="button" class="nav-btn" (click)="previousMonth()" aria-label="Previous month">‹</button>
+            <span class="month-label">{{ monthLabel }}</span>
+            <button type="button" class="nav-btn" (click)="nextMonth()" aria-label="Next month">›</button>
+          </div>
+
+          <div class="calendar-grid">
+            <div class="weekday-row">
+              <span>Su</span>
+              <span>Mo</span>
+              <span>Tu</span>
+              <span>We</span>
+              <span>Th</span>
+              <span>Fr</span>
+              <span>Sa</span>
+            </div>
+
+            <div class="date-row" *ngFor="let week of calendarWeeks">
+              <span
+                *ngFor="let day of week"
+                [class.muted]="!day.inMonth"
+                [class.selected]="day.isSelected"
+                [class.clickable]="day.inMonth"
+                (click)="day.inMonth && selectDate(day.value)"
+              >
+                {{ day.day }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="selected-date-panel">
+          <div class="selected-date-label">Selected Date</div>
+          <div class="date-box">
+            <span class="date-text">{{ formattedSelectedDate }}</span>
+          </div>
+
+          <div class="info-box">
+            <div class="info-icon">i</div>
+            <p>You are managing the day sheet for September 6th. Ensure all physical stock tallies before proceeding.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-primary" (click)="viewDaySheet()" [disabled]="!canViewDaySheet">View Day Sheet</button>
+        <button class="btn btn-secondary" (click)="downloadPDF()" [disabled]="!sheetFound">Download PDF Report</button>
+        <button class="btn btn-danger" (click)="openDeleteConfirmation()" [disabled]="!canDeleteDaySheet">Delete Latest Sheet</button>
+      </div>
+
+      <div class="day-sheet-report" *ngIf="sheetFound && daySheetData">
+        <div class="report-header">
+          <div>
+            <div class="report-label">Submitted Day Sheet</div>
+            <h2>{{ daySheetData.shop?.name || getShopName() }}</h2>
+          </div>
+          <div class="report-meta">
+            <span>{{ daySheetData.date || selectedDate }}</span>
+            <span>{{ daySheetData.shop?.id || selectedShopId }}</span>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-box">
+            <label>Total Sales</label>
+            <strong>₹ {{ (daySheetData.totalDaySale || 0).toFixed(2) }}</strong>
+          </div>
+          <div class="summary-box">
+            <label>Total Expenses</label>
+            <strong>₹ {{ (daySheetData.totalExpenses || 0).toFixed(2) }}</strong>
+          </div>
+          <div class="summary-box">
+            <label>Additional Profit</label>
+            <strong>₹ {{ (daySheetData.additionalProfit || 0).toFixed(2) }}</strong>
+          </div>
+          <div class="summary-box highlight">
+            <label>Grand Total</label>
+            <strong>₹ {{ (daySheetData.grandTotal || 0).toFixed(2) }}</strong>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Code</th>
+                <th>Sale Value</th>
+                <th>Expenses</th>
+                <th>Profit</th>
+                <th>Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let record of daySheetData.records || []">
+                <td>{{ record.brand }}</td>
+                <td>{{ record.code }}</td>
+                <td>₹ {{ getRecordSale(record).toFixed(2) }}</td>
+                <td>₹ {{ (daySheetData.totalExpenses || 0).toFixed(2) }}</td>
+                <td>₹ {{ (daySheetData.additionalProfit || 0).toFixed(2) }}</td>
+                <td>₹ {{ (daySheetData.grandTotal || 0).toFixed(2) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state-backdrop" *ngIf="noSheetDialogOpen" (click)="closeNoSheetDialog()">
+    <section class="empty-state-dialog" role="dialog" aria-modal="true" aria-labelledby="empty-sheet-title" (click)="$event.stopPropagation()">
+      <div class="empty-state-icon">!</div>
+      <h2 id="empty-sheet-title">No Day Sheet Available</h2>
+      <p>{{ noSheetMessage }}</p>
+      <button type="button" class="empty-state-button" (click)="closeNoSheetDialog()">Choose another date</button>
+    </section>
+  </div>
+
+  <div class="empty-state-backdrop" *ngIf="deleteDialogOpen" (click)="closeDeleteConfirmation()">
+    <section class="empty-state-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-sheet-title" (click)="$event.stopPropagation()">
+      <div class="empty-state-icon delete-icon">!</div>
+      <h2 id="delete-sheet-title">Delete Latest Day Sheet?</h2>
+      <p>This action can only remove the most recently submitted sheet. Older sheets will remain available.</p>
+      <dl class="delete-details">
+        <div><dt>Shop</dt><dd>{{ daySheetData?.shop?.name || getShopName() }}</dd></div>
+        <div><dt>Shop ID</dt><dd>{{ daySheetData?.shop?.id || selectedShopId }}</dd></div>
+        <div><dt>Submitted Date</dt><dd>{{ daySheetData?.date || selectedDate }}</dd></div>
+        <div><dt>Grand Total</dt><dd>₹ {{ (daySheetData?.grandTotal || 0).toFixed(2) }}</dd></div>
+        <div><dt>Submitted At</dt><dd>{{ formatSubmittedAt(daySheetData?.submittedAt) }}</dd></div>
+      </dl>
+      <div class="delete-dialog-actions">
+        <button type="button" class="empty-state-button cancel-delete-button" (click)="closeDeleteConfirmation()">Cancel</button>
+        <button type="button" class="empty-state-button confirm-delete-button" (click)="confirmDeleteDaySheet()">Delete Sheet</button>
+      </div>
+    </section>
+  </div>
+</div>

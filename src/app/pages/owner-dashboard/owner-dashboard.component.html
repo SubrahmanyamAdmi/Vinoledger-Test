@@ -1,0 +1,49 @@
+<div class="owner-shell">
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark">VS</div>
+      <div class="brand-copy">
+        <span class="owner-name">{{ auth.currentUser()?.name || 'Vikram Singh' }}</span>
+        <span class="owner-role">Owner Dashboard</span>
+      </div>
+    </div>
+
+    <button class="logout-btn" type="button" (click)="logout()">Logout</button>
+  </header>
+
+  <main class="content-wrap">
+    <h1>Welcome back, {{ auth.currentUser()?.name || 'Y Bathalaswamy' }}</h1>
+    <p class="subtitle">Manage your wine ledger and shop performance</p>
+    <div class="shop-identity" *ngIf="auth.currentUser()?.shopId">
+      <span>SHOP</span>
+      <strong>{{ shopName }}</strong>
+      <strong>{{ auth.currentUser()?.shopId }}</strong>
+    </div>
+
+    <div class="card-grid">
+      <button type="button" class="dash-card" *ngFor="let card of cards" (click)="navigateTo(card.route)">
+        <span class="card-icon" aria-hidden="true">{{ card.icon }}</span>
+        <span class="card-label">{{ card.title }}</span>
+      </button>
+    </div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item active" type="button">
+      <span class="icon">⌂</span>
+      <span>Home</span>
+    </button>
+    <button class="nav-item" type="button">
+      <span class="icon">▣</span>
+      <span>Stock</span>
+    </button>
+    <button class="nav-item" type="button">
+      <span class="icon">▤</span>
+      <span>Reports</span>
+    </button>
+    <button class="nav-item" type="button">
+      <span class="icon">⚙</span>
+      <span>Settings</span>
+    </button>
+  </nav>
+</div>

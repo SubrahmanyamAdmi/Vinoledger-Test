@@ -1,0 +1,116 @@
+<div class="mrp-shell">
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark">VS</div>
+      <div class="brand-copy">
+        <span class="user-name">{{ auth.currentUser()?.name || 'Vikram Singh' }}</span>
+        <span class="user-role">{{ auth.userRole() || 'Owner' }} Role</span>
+      </div>
+    </div>
+
+    <button class="logout-btn" type="button" (click)="logout()" aria-label="Logout">
+      <span>↪</span>
+    </button>
+  </header>
+
+  <main class="content-wrap">
+    <div class="page-title-row">
+      <button class="back-btn" type="button" (click)="goBack()" aria-label="Back">←</button>
+      <h1>Check MRP Value</h1>
+    </div>
+
+    <section class="search-panel">
+      <label for="brand-search">Search Brand</label>
+      <input
+        id="brand-search"
+        list="brand-search-options"
+        type="text"
+        [(ngModel)]="search"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Type brand name or code"
+      />
+      <datalist id="brand-search-options">
+        <option *ngFor="let brand of brands" [value]="getBrandDisplayLabel(brand)"></option>
+      </datalist>
+      <div class="action-row" *ngIf="auth.userRole() === 'Admin'">
+        <label class="import-btn">
+          Import Excise Excel
+          <input type="file" accept=".xlsx,.xls" (change)="importWorkbook($event)" />
+        </label>
+        <button class="action-btn tertiary" type="button" (click)="toggleAddBrandForm()">{{ showAddBrandForm ? 'Close' : 'Add New Brand' }}</button>
+      </div>
+      <div class="new-brand-form" *ngIf="showAddBrandForm && auth.userRole() === 'Admin'">
+        <div class="new-brand-grid">
+          <label>
+            Brand Code
+            <input type="text" [(ngModel)]="newBrandCode" name="newBrandCode" placeholder="Enter brand code" />
+          </label>
+          <label>
+            Brand Name
+            <input type="text" [(ngModel)]="newBrandName" name="newBrandName" placeholder="Enter brand name" />
+          </label>
+          <label>
+            Size
+            <input type="text" [(ngModel)]="newSize" name="newSize" placeholder="e.g. 750ml" />
+          </label>
+          <label>
+            MRP
+            <input type="number" min="0" [(ngModel)]="newMrp" name="newMrp" placeholder="Enter MRP" />
+          </label>
+        </div>
+        <div class="new-brand-actions">
+          <button class="action-btn primary" type="button" (click)="submitNewBrand()">Save Brand</button>
+          <button class="action-btn secondary" type="button" (click)="cancelAddBrand()">Cancel</button>
+        </div>
+      </div>
+      <div class="search-status" *ngIf="isSearching" aria-live="polite">
+        <span class="search-loader" aria-hidden="true"></span>
+        <span>Searching MRP...</span>
+      </div>
+      <p class="import-message" *ngIf="importMessage">{{ importMessage }}</p>
+      <p class="import-error" *ngIf="importError">{{ importError }}</p>
+    </section>
+
+    <section class="table-panel">
+      <div class="table-scroll">
+      <div class="table-header">
+        <span>S.No</span>
+        <span>Brand Code - Brand Name</span>
+        <span>Size</span>
+        <span>MRP</span>
+      </div>
+
+      <div class="table-row" *ngFor="let row of mrpRows; let i = index; trackBy: trackByBrandSize">
+        <span>{{ i + 1 }}</span>
+        <span>{{ (row.brand.codes || [row.brand.code]).join(', ') }} - {{ row.brand.brand }}</span>
+        <span>{{ row.size.size }}<small *ngIf="row.size.sizeCode"> ({{ row.size.sizeCode }})</small></span>
+        <div class="mrp-cell">
+          <ng-container *ngIf="auth.userRole() === 'Admin' && editingRowKey === getRowKey(row); else readOnlyMrp">
+            <input
+              class="mrp-input"
+              type="number"
+              min="0"
+              [(ngModel)]="row.size.mrp"
+              [attr.aria-label]="row.brand.brand + ' ' + row.size.size + ' MRP'"
+            />
+            <div class="row-edit-actions">
+              <button class="mini-btn success" type="button" (click)="saveRowEdit(row)" aria-label="Save MRP">✓</button>
+              <button class="mini-btn danger" type="button" (click)="cancelRowEdit(row)" aria-label="Cancel editing">✕</button>
+            </div>
+          </ng-container>
+          <ng-template #readOnlyMrp>
+            <span>₹{{ row.size.mrp }}</span>
+            <button
+              *ngIf="auth.userRole() === 'Admin'"
+              class="row-edit-btn"
+              type="button"
+              (click)="startRowEdit(row)"
+              [attr.aria-label]="'Edit MRP for ' + row.brand.brand + ' ' + row.size.size"
+            >✎</button>
+          </ng-template>
+        </div>
+      </div>
+      </div>
+    </section>
+  </main>
+</div>

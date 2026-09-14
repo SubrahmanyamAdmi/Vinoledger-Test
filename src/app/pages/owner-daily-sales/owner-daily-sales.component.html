@@ -1,0 +1,85 @@
+<div class="owner-sales-shell">
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark">VS</div>
+      <div class="brand-copy">
+        <span class="owner-name">{{ ownerName }}</span>
+        <span class="owner-role">Owner Dashboard</span>
+      </div>
+    </div>
+
+    <button class="back-dashboard top-back-dashboard" type="button" (click)="goBack()">
+      <span>←</span>
+      Back to Dashboard
+    </button>
+  </header>
+
+  <main class="content-wrap">
+    <section class="shop-card">
+      <div class="shop-copy">
+        <h1>{{ shop.name }}</h1>
+        <p>Shop ID: {{ shop.id }}</p>
+      </div>
+
+      <button class="shop-btn" type="button" aria-label="Shop settings">
+        <span>▣</span>
+      </button>
+    </section>
+
+    <section class="date-picker-panel">
+      <label>Select Date Range</label>
+      <div class="date-row">
+        <label class="date-field">
+          <span class="calendar">🗓</span>
+          <input type="date" [(ngModel)]="startDate" [max]="today" (ngModelChange)="onStartDateChange()" />
+        </label>
+
+        <label class="date-field">
+          <span class="calendar">🗓</span>
+          <input type="date" [(ngModel)]="endDate" [min]="startDate || null" [max]="today" (ngModelChange)="onEndDateChange()" />
+        </label>
+      </div>
+      <p class="date-error" *ngIf="dateError">{{ dateError }}</p>
+    </section>
+
+    <section class="table-panel" *ngIf="rangeSelected && !dateError">
+      <div class="table-head">
+        <span class="col-no">S. No</span>
+        <span class="col-date">Date</span>
+        <span class="col-amount">Amount</span>
+        <span class="col-expense">Expense</span>
+        <span class="col-actions">Actions</span>
+      </div>
+
+      <div class="table-row" *ngFor="let row of salesRows; let i = index">
+        <span class="col-no">{{ row.no }}</span>
+        <span class="col-date">
+          <strong>{{ row.date }}</strong>
+          <small>{{ row.invoice }}</small>
+        </span>
+        <span class="col-amount">₹{{ row.amount | number }}</span>
+        <span class="col-expense">₹{{ row.expense | number }}</span>
+        <span class="col-actions">
+          <button type="button" class="view-btn" aria-label="View record">◉</button>
+          <button type="button" class="download-btn" aria-label="Download record" (click)="downloadRow(row)">↓</button>
+        </span>
+      </div>
+    </section>
+
+    <section class="summary-bar" *ngIf="rangeSelected && !dateError">
+      <span class="summary-label">Total Sales (Period)</span>
+      <div class="summary-value-row">
+        <strong>₹{{ totalSales | number }}</strong>
+        <button type="button" class="summary-download" aria-label="Download all reports" (click)="downloadAll()" [disabled]="!salesRows.length">
+          ⬇
+        </button>
+      </div>
+    </section>
+
+    <button class="download-all" type="button" *ngIf="rangeSelected && !dateError" (click)="downloadAll()" [disabled]="!salesRows.length">
+      <span>↓</span>
+      Download All Reports
+    </button>
+
+  </main>
+</div>

@@ -1,0 +1,84 @@
+<div class="table-container">
+  <table mat-table [dataSource]="dataSource" class="mat-elevation-z8 stock-table">
+
+    <!-- Primary fixed columns -->
+    <ng-container matColumnDef="no">
+      <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2"> No. </th>
+      <td mat-cell *matCellDef="let element"> {{element.no}} </td>
+    </ng-container>
+
+    <ng-container matColumnDef="particulars">
+      <th mat-header-cell *matHeaderCellDef [attr.rowspan]="2"> Particulars </th>
+      <td mat-cell *matCellDef="let element" class="text-left"> {{element.particulars}} </td>
+    </ng-container>
+
+    <!-- Header Groups (Level 1) -->
+    <ng-container matColumnDef="openingGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="4"> Opening Stock </th>
+    </ng-container>
+    <ng-container matColumnDef="receiptsGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="4"> Receipts </th>
+    </ng-container>
+    <ng-container matColumnDef="totalGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="4"> Total </th>
+    </ng-container>
+    <ng-container matColumnDef="salesGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="4"> Sales </th>
+    </ng-container>
+    <ng-container matColumnDef="balanceGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="4"> Balance </th>
+    </ng-container>
+    <ng-container matColumnDef="rateGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="4"> Rate </th>
+    </ng-container>
+    <ng-container matColumnDef="amountGroup">
+      <th mat-header-cell *matHeaderCellDef colspan="2"> Amount </th>
+    </ng-container>
+
+    <!-- Sub-headers (Level 2) & Data Cells -->
+    <!-- Opening Sub-columns -->
+    <ng-container matColumnDef="op_q"><th mat-header-cell *matHeaderCellDef>Q</th><td mat-cell *matCellDef="let element">{{element.opening.q}}</td></ng-container>
+    <ng-container matColumnDef="op_p"><th mat-header-cell *matHeaderCellDef>P</th><td mat-cell *matCellDef="let element">{{element.opening.p}}</td></ng-container>
+    <ng-container matColumnDef="op_n"><th mat-header-cell *matHeaderCellDef>N</th><td mat-cell *matCellDef="let element">{{element.opening.n}}</td></ng-container>
+    <ng-container matColumnDef="op_d"><th mat-header-cell *matHeaderCellDef>D</th><td mat-cell *matCellDef="let element">{{element.opening.d}}</td></ng-container>
+
+    <!-- Receipts Sub-columns -->
+    <ng-container matColumnDef="rec_q"><th mat-header-cell *matHeaderCellDef>Q</th><td mat-cell *matCellDef="let element">{{element.receipts.q}}</td></ng-container>
+    <ng-container matColumnDef="rec_p"><th mat-header-cell *matHeaderCellDef>P</th><td mat-cell *matCellDef="let element">{{element.receipts.p}}</td></ng-container>
+    <ng-container matColumnDef="rec_n"><th mat-header-cell *matHeaderCellDef>N</th><td mat-cell *matCellDef="let element">{{element.receipts.n}}</td></ng-container>
+    <ng-container matColumnDef="rec_d"><th mat-header-cell *matHeaderCellDef>D</th><td mat-cell *matCellDef="let element">{{element.receipts.d}}</td></ng-container>
+
+    <!-- Total Sub-columns -->
+    <ng-container matColumnDef="tot_q"><th mat-header-cell *matHeaderCellDef>Q</th><td mat-cell *matCellDef="let element">{{element.total.q}}</td></ng-container>
+    <ng-container matColumnDef="tot_p"><th mat-header-cell *matHeaderCellDef>P</th><td mat-cell *matCellDef="let element">{{element.total.p}}</td></ng-container>
+    <ng-container matColumnDef="tot_n"><th mat-header-cell *matHeaderCellDef>N</th><td mat-cell *matCellDef="let element">{{element.total.n}}</td></ng-container>
+    <ng-container matColumnDef="tot_d"><th mat-header-cell *matHeaderCellDef>D</th><td mat-cell *matCellDef="let element">{{element.total.d}}</td></ng-container>
+
+    <!-- Sales Sub-columns -->
+    <ng-container matColumnDef="sal_q"><th mat-header-cell *matHeaderCellDef>Q</th><td mat-cell *matCellDef="let element">{{element.sales.q}}</td></ng-container>
+    <ng-container matColumnDef="sal_p"><th mat-header-cell *matHeaderCellDef>P</th><td mat-cell *matCellDef="let element">{{element.sales.p}}</td></ng-container>
+    <ng-container matColumnDef="sal_n"><th mat-header-cell *matHeaderCellDef>N</th><td mat-cell *matCellDef="let element">{{element.sales.n}}</td></ng-container>
+    <ng-container matColumnDef="sal_d"><th mat-header-cell *matHeaderCellDef>D</th><td mat-cell *matCellDef="let element">{{element.sales.d}}</td></ng-container>
+
+    <!-- Balance Sub-columns -->
+    <ng-container matColumnDef="bal_q"><th mat-header-cell *matHeaderCellDef>Q</th><td mat-cell *matCellDef="let element">{{element.balance.q}}</td></ng-container>
+    <ng-container matColumnDef="bal_p"><th mat-header-cell *matHeaderCellDef>P</th><td mat-cell *matCellDef="let element">{{element.balance.p}}</td></ng-container>
+    <ng-container matColumnDef="bal_n"><th mat-header-cell *matHeaderCellDef>N</th><td mat-cell *matCellDef="let element">{{element.balance.n}}</td></ng-container>
+    <ng-container matColumnDef="bal_d"><th mat-header-cell *matHeaderCellDef>D</th><td mat-cell *matCellDef="let element">{{element.balance.d}}</td></ng-container>
+
+    <!-- Rate Sub-columns -->
+    <ng-container matColumnDef="rate_q"><th mat-header-cell *matHeaderCellDef>Q</th><td mat-cell *matCellDef="let element">{{element.rate.q}}</td></ng-container>
+    <ng-container matColumnDef="rate_p"><th mat-header-cell *matHeaderCellDef>P</th><td mat-cell *matCellDef="let element">{{element.rate.p}}</td></ng-container>
+    <ng-container matColumnDef="rate_n"><th mat-header-cell *matHeaderCellDef>N</th><td mat-cell *matCellDef="let element">{{element.rate.n}}</td></ng-container>
+    <ng-container matColumnDef="rate_d"><th mat-header-cell *matHeaderCellDef>D</th><td mat-cell *matCellDef="let element">{{element.rate.d}}</td></ng-container>
+
+    <!-- Amount Sub-columns -->
+    <ng-container matColumnDef="amt_rs"><th mat-header-cell *matHeaderCellDef>Rs.</th><td mat-cell *matCellDef="let element">{{element.amount.rs}}</td></ng-container>
+    <ng-container matColumnDef="amt_ps"><th mat-header-cell *matHeaderCellDef>Ps.</th><td mat-cell *matCellDef="let element">{{element.amount.ps}}</td></ng-container>
+
+    <!-- Defining Row Structures -->
+    <tr mat-header-row *matHeaderRowDef="displayedHeaderRows1"></tr>
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+</div>

@@ -1,0 +1,278 @@
+<main class="sheet-shell">
+  <header class="topbar">
+    <div class="mark">VL</div>
+    <div>
+      <strong>VinoLedger</strong>
+      <span>Day sheet</span>
+    </div>
+    <button (click)="auth.logout()">Logout</button>
+  </header>
+
+  <section class="content">
+    <div class="heading">
+      <div>
+        <div class="eyebrow">DAY SHEET</div>
+        <h1>{{ shop.owner }}</h1>
+        <p>{{ shop.id }} · {{ date | date:'dd MMM yyyy' }}</p>
+      </div>
+
+      <div class="action-row">
+        <button class="primary" (click)="addExpense()">＋ Add Expense</button>
+        <button class="primary" disabled title="Adding brand entries is disabled">＋ Add Brand Entry</button>
+        <button class="primary" (click)="addAdditionalProfit()">＋ Add Additional Profit</button>
+        <button class="primary" (click)="addCashDetails()">＋ Cash Details</button>
+      </div>
+    </div>
+
+    <div class="empty" *ngIf="!records.length">
+      <strong>No entries saved yet</strong>
+      <span>Save a brand sale entry to build this day's sheet.</span>
+    </div>
+
+    <div class="table-wrap" *ngIf="records.length">
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>S.No</th>
+            <th>Brand Name</th>
+            <th>Opening Stock</th>
+            <th>Balance Stock</th>
+            <th>Sales Stock</th>
+            <th>MRP / Price</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let record of records; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td class="brand-cell">
+              <strong>{{ record.brand }}</strong>
+              <small>{{ record.code }}</small>
+            </td>
+
+            <td class="stack-cell">
+              <div class="size-stack">
+                <div class="size-row" *ngFor="let size of sizes">
+                  <span>{{ size }}</span>
+                  <strong>{{ getSizeValue(record, size, 'opening') }}</strong>
+                </div>
+              </div>
+            </td>
+
+            <td class="stack-cell">
+              <div class="size-stack editable-stack">
+                <div class="size-row" *ngFor="let size of sizes">
+                  <span>{{ size }}</span>
+                  <input type="number" min="0" [value]="sizeRecord(record, size)?.balanceEntered ? getSizeValue(record, size, 'closing') : ''" (input)="updateBalance(record, size, +$any($event.target).value)" [attr.aria-label]="record.brand + ' ' + size + ' balance stock'" />
+                </div>
+              </div>
+            </td>
+
+            <td class="stack-cell">
+              <div class="size-stack">
+                <div class="size-row" *ngFor="let size of sizes">
+                  <span>{{ size }}</span>
+                  <strong>{{ getSizeValue(record, size, 'sales') }}</strong>
+                </div>
+              </div>
+            </td>
+
+            <td class="stack-cell">
+              <div class="size-stack price-stack">
+                <div class="size-row" *ngFor="let size of sizes">
+                  <span>{{ size }}</span>
+                  <strong>₹ {{ getSizeValue(record, size, 'price') | number }}</strong>
+                </div>
+              </div>
+            </td>
+
+            <td class="amount">₹ {{ totalAmount(record) | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+
+      </table>
+      </div>
+      <table class="totals-footer">
+        <tbody>
+          <tr class="total-row">
+            <td colspan="6" class="summary-label">Total Day Sale</td>
+            <td class="summary-value">₹ {{ totalDaySale() | number:'1.2-2' }}</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="6" class="summary-label">Additional Profit</td>
+            <td class="summary-value">₹ {{ additionalProfitTotal() | number:'1.2-2' }}</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="6" class="summary-label">Total Expenses</td>
+            <td class="summary-value">₹ {{ totalExpenses() | number:'1.2-2' }}</td>
+          </tr>
+          <tr class="total-row grand-total">
+            <td colspan="6" class="summary-label">Grand Total</td>
+            <td class="summary-value">₹ {{ grandTotal() | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sheet-actions">
+      <button type="button" class="primary" (click)="submitSheet()">Submit</button>
+      <button type="button" class="secondary-btn" (click)="cancelSheet()">Cancel</button>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="submitDialogOpen" (click)="closeSubmitDialog()">
+      <div class="expense-modal submit-modal" role="dialog" aria-modal="true" aria-labelledby="submit-sheet-title" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="submit-sheet-title">Submit Day Sheet</h3>
+          <button type="button" class="close-btn" (click)="closeSubmitDialog()">×</button>
+        </div>
+        <div class="submit-form">
+          <label for="sheet-amount">Sheet Amount</label>
+          <input id="sheet-amount" type="number" min="0" step="0.01" [(ngModel)]="sheetAmount" placeholder="Enter sheet amount" />
+          <p class="comparison-message" [class.success-message]="comparisonSuccessful" [class.error-message]="comparisonSuccessful === false" *ngIf="comparisonMessage">
+            {{ comparisonMessage }}
+          </p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" (click)="closeSubmitDialog()">Cancel</button>
+          <button type="button" class="primary" [disabled]="!hasSheetAmount() || isSubmitting" (click)="confirmSubmit()">
+            <span class="button-spinner" *ngIf="isSubmitting" aria-hidden="true"></span>
+            {{ isSubmitting ? 'Submitting...' : 'Confirm' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="submissionSuccessDialogOpen">
+      <div class="expense-modal success-modal" role="dialog" aria-modal="true" aria-labelledby="submission-success-title">
+        <div class="modal-header">
+          <h3 id="submission-success-title">Sheet Submitted Successfully</h3>
+        </div>
+        <div class="success-content">
+          <strong>Day sheet confirmed{{ submissionMode === 'local' ? ' locally' : '' }}.</strong>
+          <p>Submitted Date: <strong>{{ date | date:'dd MMMM yyyy' }}</strong></p>
+          <p *ngIf="submissionMode === 'local'" class="local-save-message">Firebase is not configured yet. This submission is saved in this browser until Firebase setup is completed.</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="primary" (click)="closeSubmissionSuccessDialog()">Go to Sheet Date</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="additionalProfitDialogOpen" (click)="closeAdditionalProfitDialog()">
+      <div class="expense-modal profit-modal" role="dialog" aria-modal="true" aria-labelledby="additional-profit-title" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="additional-profit-title">Add Additional Profit</h3>
+          <button type="button" class="close-btn" (click)="closeAdditionalProfitDialog()">×</button>
+        </div>
+        <div class="modal-body">
+          <table class="expense-table">
+            <thead>
+              <tr>
+                <th>Profit Name</th>
+                <th>Comments</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of additionalProfitRows">
+                <td>{{ row.name }}</td>
+                <td><input type="text" [(ngModel)]="row.comment" placeholder="Enter comment" /></td>
+                <td><input type="number" min="0" step="0.01" [(ngModel)]="row.value" placeholder="0.00" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" (click)="closeAdditionalProfitDialog()">Cancel</button>
+          <button type="button" class="primary" (click)="saveAdditionalProfit()">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="cashDetailsDialogOpen" (click)="closeCashDetailsDialog()">
+      <div class="expense-modal cash-details-modal" role="dialog" aria-modal="true" aria-labelledby="cash-details-title" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="cash-details-title">Cash Details</h3>
+          <button type="button" class="close-btn" (click)="closeCashDetailsDialog()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <table class="expense-table">
+            <tbody>
+              <tr>
+                <td>Cash Deposit</td>
+                <td>
+                  <input type="number" min="0" step="0.01" [(ngModel)]="cashDetails.cashDeposit" placeholder="0.00" />
+                </td>
+              </tr>
+              <tr>
+                <td>Phone Pay/Paytm</td>
+                <td>
+                  <input type="number" min="0" step="0.01" [(ngModel)]="cashDetails.phonePay" placeholder="0.00" />
+                </td>
+              </tr>
+              <tr>
+                <td>Comments</td>
+                <td>
+                  <input type="text" [(ngModel)]="cashDetails.comments" placeholder="Enter comments" />
+                </td>
+              </tr>
+              <tr>
+                <td>Upload Bank Challan Receipt</td>
+                <td>
+                  <input type="file" accept="image/*,.pdf" (change)="onBankChallanSelected($event)" />
+                  <small *ngIf="cashDetails.bankChallanReceipt">{{ cashDetails.bankChallanReceipt }}</small>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" (click)="closeCashDetailsDialog()">Cancel</button>
+          <button type="button" class="primary" (click)="saveCashDetails()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="expenseDialogOpen" (click)="closeExpenseDialog()">
+      <div class="expense-modal" role="dialog" aria-modal="true" aria-labelledby="add-expense-title" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="add-expense-title">Add Expense</h3>
+          <button type="button" class="close-btn" (click)="closeExpenseDialog()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <table class="expense-table">
+            <thead>
+              <tr>
+                <th>Expense Name</th>
+                <th>Comments</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of expenseRows">
+                <td>{{ row.name }}</td>
+                <td>
+                  <input type="text" [(ngModel)]="row.comment" placeholder="Enter comment" />
+                </td>
+                <td>
+                  <input type="number" min="0" step="0.01" [(ngModel)]="row.value" placeholder="0.00" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" (click)="closeExpenseDialog()">Cancel</button>
+          <button type="button" class="primary" (click)="saveExpenseEntries()">Add</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+

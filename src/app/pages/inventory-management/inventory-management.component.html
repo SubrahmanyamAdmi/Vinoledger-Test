@@ -1,0 +1,26 @@
+<app-topbar></app-topbar>
+<app-sidenav>
+  <div class="page-content">
+    <h2>Inventory</h2>
+    <div *ngIf="inventory?.length; else loading">
+      <table class="inventory-table">
+        <thead>
+          <tr><th>ID</th><th>Name</th><th>Brand</th><th>Category</th><th>Stock</th><th>Price</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let it of inventory">
+            <td>{{it.id}}</td>
+            <td>{{it.name}}</td>
+            <td>{{it.brand}}</td>
+            <td>{{it.category}}</td>
+            <td>{{it.stock}}</td>
+            <td>{{it.price}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #loading>
+      <p>Loading inventory...</p>
+    </ng-template>
+  </div>
+</app-sidenav>

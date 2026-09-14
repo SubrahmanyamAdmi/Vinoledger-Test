@@ -1,0 +1,120 @@
+<main class="shell">
+  <header class="topbar">
+    <div class="mark">VL</div>
+    <div>
+      <strong>VinoLedger</strong>
+      <span>{{ auth.currentUser()?.name || 'Cashier' }} · Cashier</span>
+    </div>
+    <button class="back-button" (click)="goBack()">← Back</button>
+    <button class="logout-button" (click)="auth.logout()">Logout</button>
+  </header>
+
+  <section class="content">
+    <div class="eyebrow">NEW STOCK ENTRY</div>
+    <h1>Invoice details</h1>
+    <div class="context">
+      <strong>{{ shop.owner }}</strong>
+      <span>{{ shop.id }} · {{ date | date:'dd MMM yyyy' }}</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Brand Code - Brand Name</th>
+            <th>Pack Qty / Size</th>
+            <th>Qty Cases</th>
+            <th>Number of bottles in case</th>
+            <th>Prt.Delivered</th>
+            <th>Qty Bottles</th>
+            <th>+</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of rows; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td><input list="brand-options" [ngModel]="brandDisplay(row)" (ngModelChange)="selectBrand(row, $event)" placeholder="Brand code or name"></td>
+            <td>
+              <select [(ngModel)]="row.size" (ngModelChange)="row.size === 0 ? useCustomSize(row) : sizeChanged(row)">
+                <option *ngFor="let size of row.sizeOptions" [ngValue]="size.size">{{ size.bottlesPerCase }} / {{ size.size }} ml</option>
+                <option *ngIf="!row.isExistingBrand" [ngValue]="0">Add new size...</option>
+              </select>
+              <input *ngIf="!row.isExistingBrand && row.size === 0" type="number" min="1" [(ngModel)]="row.customSize" (ngModelChange)="setCustomSize(row)" placeholder="New size">
+            </td>
+            <td><input type="number" min="0" [(ngModel)]="row.cases" (ngModelChange)="update(row)"></td>
+            <td><input type="number" min="0" [(ngModel)]="row.bottlesPerCase" [disabled]="row.isExistingBrand" (ngModelChange)="update(row)" [placeholder]="row.isExistingBrand ? '' : 'Enter once'"></td>
+            <td><input type="number" min="0" [(ngModel)]="row.prtDelivered" (ngModelChange)="update(row)"></td>
+            <td class="calculated">{{ row.bottles }}</td>
+            <td>
+              <button type="button" aria-label="Add another row for this brand" disabled title="Adding rows is disabled" style="border:0;background:#c8cec8;color:#fff;border-radius:50%;width:28px;height:28px;font-size:1.1rem;line-height:1;cursor:not-allowed">+</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="invoice-total" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:16px 20px;background:#e8eee7;border-left:3px solid #4e866b;color:#254f43">
+      <label for="total-cases">Total Number of Cases</label>
+      <input id="total-cases" type="number" [value]="totalCases" disabled style="width:220px;box-sizing:border-box;padding:9px;border:1px solid #c9cec5;background:#fafaf6;border-radius:3px">
+    </div>
+
+    <div class="invoice-total" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:16px 20px;background:#e8eee7;border-left:3px solid #4e866b;color:#254f43">
+      <label for="invoice-value">Total Invoice Value</label>
+      <input id="invoice-value" type="number" min="0" step="0.01" [(ngModel)]="invoiceValue" placeholder="Enter invoice value" style="width:220px;box-sizing:border-box;padding:9px;border:1px solid #c9cec5;background:#fafaf6;border-radius:3px">
+    </div>
+
+    <div class="actions">
+      <button class="outline" disabled title="Adding brands is disabled">+ Add New Brand</button>
+      <button type="button" class="primary" [disabled]="!canSave() || isParsingInvoice || isSaving" (click)="save()" title="Verify the imported rows, enter the invoice value, and upload an invoice file to enable Save Invoice">Submit Invoice</button>
+      <label class="outline upload-button" [class.disabled]="isParsingInvoice || isSaving">
+        {{ isParsingInvoice ? 'Reading Invoice...' : 'Upload Invoice' }}
+        <input type="file" accept=".pdf,.xlsx,.xls,.csv" [disabled]="isParsingInvoice || isSaving" (change)="uploadInvoice($event)">
+      </label>
+    </div>
+  </section>
+
+  <div class="page-loader" *ngIf="isParsingInvoice || isSaving" role="status" aria-live="polite">
+    <div class="page-loader-panel">
+      <span class="page-loader-spinner" aria-hidden="true"></span>
+      <strong>{{ isParsingInvoice ? 'Uploading invoice...' : 'Submitting invoice...' }}</strong>
+      <span>{{ isParsingInvoice ? 'Reading the invoice and preparing its data.' : 'Saving the invoice to Firestore.' }}</span>
+    </div>
+  </div>
+
+  <datalist id="brand-options">
+    <option *ngFor="let option of availableBrands" [value]="option.code + ' - ' + option.brand"></option>
+  </datalist>
+
+  <div class="modal-backdrop" *ngIf="confirmationOpen" (click)="cancelConfirmation()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="invoice-confirm-title" (click)="$event.stopPropagation()">
+      <h2 id="invoice-confirm-title">Confirm Invoice Value</h2>
+      <p>Invoice value entered: <strong>{{ invoiceValue | number:'1.2-2' }}</strong></p>
+      <div class="actions">
+        <button class="outline" (click)="cancelConfirmation()">Cancel</button>
+        <button class="primary" [disabled]="isSaving" (click)="confirmSave()">
+          <span class="button-spinner" *ngIf="isSaving" aria-hidden="true"></span>
+          {{ isSaving ? 'Saving...' : 'Confirm' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="status" (click)="close()">
+    <div class="modal" (click)="$event.stopPropagation()" [class.failed]="status === 'error'">
+      <div class="status-icon">{{ status === 'success' ? 'OK' : 'X' }}</div>
+      <h2>{{ status === 'success' ? 'Invoice saved' : 'Save failed' }}</h2>
+      <p>{{ status === 'success' ? 'Stock has been added to the ledger successfully.' : (statusMessage || 'Add a brand and at least one case before saving.') }}</p>
+      <button class="primary" (click)="close()">{{ status === 'success' ? 'Go to Sheet Date' : 'Close' }}</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="uploadStatus" (click)="close()">
+    <div class="modal" (click)="$event.stopPropagation()" [class.failed]="uploadStatus === 'error'">
+      <div class="status-icon">{{ uploadStatus === 'success' ? 'OK' : 'X' }}</div>
+      <h2>{{ uploadStatus === 'success' ? 'Invoice uploaded' : 'Upload failed' }}</h2>
+      <p>{{ uploadStatus === 'success' ? statusMessage : statusMessage }}</p>
+      <button class="primary" (click)="close()">Done</button>
+    </div>
+  </div>
+</main>

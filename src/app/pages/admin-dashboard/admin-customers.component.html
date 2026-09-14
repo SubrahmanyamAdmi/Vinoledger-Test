@@ -1,0 +1,63 @@
+<div class="customers-container">
+  <header class="header">
+    <div>
+      <h1>Customers & Users</h1>
+      <p class="subtitle">Manage owners and cashiers for all shops</p>
+    </div>
+    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+  </header>
+
+  <div class="list-view">
+    <div class="header-actions">
+      <input type="text" class="search-box" placeholder="Search by name, email or shop ID..." [(ngModel)]="searchTerm">
+    </div>
+
+    <div class="table-wrapper">
+      <div class="page-loader" *ngIf="loading" role="status" aria-live="polite">
+        <span class="loader-spinner" aria-hidden="true"></span>
+        <p>Loading customers and users...</p>
+      </div>
+      <p class="table-state error-state" *ngIf="!loading && loadError" role="alert">{{ loadError }}</p>
+      <table class="customers-table" *ngIf="!loading && !loadError">
+        <thead>
+          <tr>
+            <th>TYPE</th>
+            <th>NAME</th>
+            <th>MOBILE</th>
+            <th>SHOP NAME</th>
+            <th>SHOP LOCATION</th>
+            <th>SHOP ID</th>
+            <th>EMAIL</th>
+            <th>ACTION</th>
+          </tr>
+        </thead>
+        <tbody *ngIf="!loading && !loadError">
+          <tr *ngFor="let customer of filteredCustomers">
+            <td>
+              <span class="type-badge" [ngClass]="customer.type === 'Owner' ? 'owner' : 'cashier'">
+                {{ customer.type }}
+              </span>
+            </td>
+            <td class="customer-cell">
+              <div class="customer-info">
+                <div class="customer-name">{{ customer.name }}</div>
+              </div>
+            </td>
+            <td class="mobile-cell">{{ customer.mobile }}</td>
+            <td>{{ customer.shopName }}</td>
+            <td>{{ customer.shopLocation }}</td>
+            <td>{{ customer.shopId }}</td>
+            <td class="email-cell">{{ customer.email }}</td>
+            <td class="action-cell">
+              <button class="delete-btn" (click)="deleteCustomer(customer.id)">🗑️</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="footer-info">
+      <span class="total-text">Total Records: <strong>{{ totalCustomers }}</strong></span>
+    </footer>
+  </div>
+</div>

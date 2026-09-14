@@ -1,0 +1,377 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: #f5f5f5;
+  color: #333;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+.invoices-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e0e0e0;
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+
+    .user-role {
+      font-weight: 600;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .user-label {
+      font-size: 12px;
+      color: #999;
+    }
+  }
+
+  .logout-btn {
+    background: none;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    color: #ff69b4;
+    font-weight: 600;
+  }
+}
+
+.customer-selection {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+
+  h2 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: #666;
+    }
+
+    .select-wrapper {
+      position: relative;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23333' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+
+      &:focus {
+        border-color: #999;
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+      }
+    }
+  }
+
+  .add-invoice-section {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+
+    .add-invoice-btn {
+      background: #000;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:hover {
+        background: #333;
+      }
+    }
+  }
+}
+
+.add-form {
+  background: #fff9f0;
+  border: 1px solid #ffe0c0;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 16px 0;
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .form-group {
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #666;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+
+      &:focus {
+        border-color: #999;
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+      }
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      font-family: inherit;
+    }
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+
+    .btn-submit {
+      background: #ff9800;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:hover {
+        background: #f57c00;
+      }
+    }
+
+    .btn-cancel {
+      background: white;
+      border: 1px solid #ddd;
+      color: #333;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:hover {
+        background: #f5f5f5;
+      }
+    }
+  }
+}
+
+.invoices-section {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.invoices-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead {
+    background: #f9f9f9;
+    border-bottom: 2px solid #e0e0e0;
+
+    th {
+      padding: 12px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #e0e0e0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: #fafafa;
+      }
+
+      td {
+        padding: 12px;
+        font-size: 13px;
+        color: #333;
+      }
+    }
+  }
+}
+
+.serial {
+  text-align: center;
+  color: #666;
+}
+
+.date-ref {
+  .date {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 3px;
+  }
+
+  .ref {
+    font-size: 12px;
+    color: #999;
+  }
+}
+
+.amount {
+  font-weight: 600;
+  color: #333;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+
+  .action-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #e0e0e0;
+    }
+  }
+
+  .view-btn:hover {
+    background: #e3f2fd;
+  }
+
+  .download-btn:hover {
+    background: #f3e5f5;
+  }
+}
+
+.invoice-footer {
+  background: #1a1a1a;
+  color: white;
+  padding: 16px;
+  border-radius: 6px;
+  text-align: right;
+
+  .footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.8;
+  }
+
+  .footer-stats {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+
+    .count {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .total-amount {
+      font-size: 14px;
+      font-weight: 600;
+    }
+  }
+}
+
+.back-button {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+
+  .back-btn {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f5f5f5;
+      border-color: #999;
+    }
+  }
+}

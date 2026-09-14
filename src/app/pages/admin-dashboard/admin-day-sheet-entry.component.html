@@ -1,0 +1,49 @@
+<main class="sheet-shell">
+  <header class="topbar">
+    <div class="mark">VL</div>
+    <div class="title-block">
+      <strong>VinoLedger</strong>
+      <span>Admin • Day Sheet Entry</span>
+    </div>
+    <button class="logout-btn" (click)="goBack()">Back</button>
+  </header>
+
+  <section class="content">
+    <div class="eyebrow">SHEET INITIALIZATION</div>
+    <h1>Select shop & date</h1>
+
+    <div class="identity">
+      <div>
+        <small>SHOP OWNER</small>
+        <strong>{{ selectedShop.owner }}</strong>
+      </div>
+      <div>
+        <small>SHOP ID</small>
+        <strong>{{ selectedShop.id }}</strong>
+      </div>
+    </div>
+
+    <div class="panel">
+      <label for="shop-select">Select shop</label>
+      <select id="shop-select" [(ngModel)]="selectedShopId" class="form-control" (ngModelChange)="onShopChange()">
+        <option value="" disabled>Select shop ID</option>
+        <option *ngFor="let shop of shops" [value]="shop.id">
+          {{ shop.owner }} - {{ shop.id }}
+        </option>
+      </select>
+
+      <label for="date">Select sheet date</label>
+      <input id="date" type="date" [max]="today" [(ngModel)]="date" (ngModelChange)="dateChanged()">
+
+      <p *ngIf="dateError" class="date-error" role="alert">{{ dateError }}</p>
+      <p>Opening a new sheet for this shop and date. Continue to daily sales entry to complete the sales record.</p>
+    </div>
+
+    <div class="actions">
+      <button class="outline" (click)="open('/invoice')">＋ Add Invoice</button>
+      <button class="primary" (click)="open('/daily-sales')">Proceed <span>→</span></button>
+    </div>
+  </section>
+
+  <footer>SECURE SESSION ACTIVE</footer>
+</main>

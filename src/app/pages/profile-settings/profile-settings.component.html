@@ -1,0 +1,81 @@
+<div class="profile-shell">
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark">VS</div>
+      <div class="brand-copy">
+        <span class="owner-name">{{ auth.currentUser()?.name || 'Shop Owner' }}</span>
+        <span class="owner-role">Owner Dashboard</span>
+      </div>
+    </div>
+    <button class="logout-btn" type="button" (click)="logout()" aria-label="Logout">↪</button>
+  </header>
+
+  <main class="content-wrap">
+    <div class="title-row">
+      <button class="back-btn" type="button" (click)="goBack()" aria-label="Back to dashboard">←</button>
+      <div>
+        <h1>Profile</h1>
+        <p class="subtitle">Your account information and security</p>
+      </div>
+    </div>
+
+    <section class="profile-card">
+      <div class="avatar">{{ (auth.currentUser()?.name || 'S').charAt(0) }}</div>
+      <div class="profile-details">
+        <div><span>Name</span><strong>{{ auth.currentUser()?.name || 'Shop Owner' }}</strong></div>
+        <div><span>Email</span><strong>{{ auth.currentUser()?.email }}</strong></div>
+        <div><span>Role</span><strong>{{ auth.currentUser()?.role }}</strong></div>
+      </div>
+    </section>
+
+    <section class="security-card">
+      <div>
+        <h2>Password &amp; Security</h2>
+        <p>Keep your owner account secure with a new password.</p>
+      </div>
+      <button class="update-btn" type="button" (click)="openPasswordConfirmation()">Change Password</button>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" *ngIf="confirmationOpen" (click)="closeDialogs()">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" (click)="$event.stopPropagation()">
+      <div class="modal-icon">?</div>
+      <h2 id="confirm-title">Change your password?</h2>
+      <p>You will need your current password to create a new one.</p>
+      <div class="modal-actions">
+        <button class="secondary-btn" type="button" (click)="closeDialogs()">Cancel</button>
+        <button class="update-btn" type="button" (click)="continueToPasswordUpdate()">Continue</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="passwordDialogOpen" (click)="closeDialogs()">
+    <section class="modal password-modal" role="dialog" aria-modal="true" aria-labelledby="password-title" (click)="$event.stopPropagation()">
+      <button class="close-btn" type="button" (click)="closeDialogs()" aria-label="Close">×</button>
+      <h2 id="password-title">Update Password</h2>
+      <p>Choose a password with at least 6 characters.</p>
+      <form (ngSubmit)="updatePassword()">
+        <label for="current-password">Current password</label>
+        <input id="current-password" name="currentPassword" type="password" [(ngModel)]="currentPassword" required />
+
+        <label for="new-password">New password</label>
+        <input id="new-password" name="newPassword" type="password" [(ngModel)]="newPassword" minlength="6" required />
+
+        <label for="confirm-password">Confirm new password</label>
+        <input id="confirm-password" name="confirmPassword" type="password" [(ngModel)]="confirmPassword" required />
+
+        <button class="update-btn" type="submit">Update Password</button>
+        <p class="error" *ngIf="error">{{ error }}</p>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="successDialogOpen" (click)="closeSuccessDialog()">
+    <section class="modal success-modal" role="dialog" aria-modal="true" aria-labelledby="success-title" (click)="$event.stopPropagation()">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <h2 id="success-title">Password updated successfully</h2>
+      <p>Your new password is now active for your account.</p>
+      <button class="update-btn" type="button" (click)="closeSuccessDialog()">Done</button>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,238 @@
+.shop-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 24px;
+  padding: 9px 13px;
+  border: 1px solid #d8d3c6;
+  border-radius: 7px;
+  background: #fffdf8;
+  color: #254f43;
+}
+
+.shop-identity span {
+  color: #a25338;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.shop-identity strong {
+  font-size: 14px;
+}
+:host {
+  display: block;
+  min-height: 100vh;
+  background: #f4f1e9;
+  color: #20241f;
+  font-family: 'Trebuchet MS', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.owner-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f4f1e9;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px 14px;
+  background: #fbfaf6;
+  border-bottom: 1px solid #ddd9cc;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: #254f43;
+  color: #f5f0df;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.owner-name {
+  font-size: clamp(1.15rem, 2vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #254f43;
+  font-family: Georgia, serif;
+}
+
+.owner-role {
+  font-size: 0.8rem;
+  color: #7e8378;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.logout-btn {
+  border: 1px solid #d4d0c3;
+  background: transparent;
+  color: #53594f;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 5px;
+}
+
+.content-wrap {
+  flex: 1;
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  padding: 18px 20px 120px;
+}
+
+h1 {
+  margin: 0;
+  font: 700 clamp(2.2rem, 5vw, 4rem) Georgia, serif;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: #254f43;
+}
+
+.subtitle {
+  margin: 10px 0 28px;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  color: #5d6159;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 18px 22px;
+}
+
+.dash-card {
+  border: 1px solid #d8d3c6;
+  border-radius: 16px;
+  background: #fffdf8;
+  min-height: 178px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 18px 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 6px 18px rgba(53, 67, 55, 0.05);
+}
+
+.dash-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(37, 79, 67, 0.12);
+}
+
+.card-icon {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(37, 79, 67, 0.09);
+  color: #254f43;
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.card-label {
+  font-size: clamp(1.15rem, 2vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #20241f;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(92vw, 560px);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid #dfe0df;
+  border-radius: 18px;
+  box-shadow: 0 8px 18px rgba(33, 50, 61, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  backdrop-filter: blur(8px);
+}
+
+.nav-item {
+  border: none;
+  background: transparent;
+  color: #3e4750;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+
+.nav-item.active {
+  color: #1d1d1d;
+}
+
+.nav-item .icon {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+    font-size: 1.1rem;
+  }
+
+  .owner-name {
+    font-size: 1.2rem;
+  }
+
+  .content-wrap {
+    padding-inline: 14px;
+  }
+}

@@ -21,6 +21,6 @@ export const roleGuard = (allowedRoles: UserRole[]): CanActivateFn => {
     const role = auth.userRole();
     if (role === 'Admin') return router.parseUrl('/admin');
     if (role === 'Owner') return router.parseUrl('/owner');
-    return router.parseUrl('/user');
+    return router.parseUrl('/daily-sales');
   };
 };

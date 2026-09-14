@@ -1,0 +1,70 @@
+<div class="registration-shell">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Shop administration</p>
+      <h1>Register New Owner</h1>
+      <p class="subtitle">Create the shop account, owner access and as many cashier logins as needed.</p>
+    </div>
+    <button type="button" class="secondary-btn" (click)="goBack()">Back to dashboard</button>
+  </header>
+
+  <form *ngIf="!credentials.length" (ngSubmit)="register()" #registrationForm="ngForm">
+    <section class="form-section">
+      <div class="section-heading"><span>01</span><div><h2>Shop details</h2><p>The shop ID becomes the basis for every generated login.</p></div></div>
+      <div class="field-grid">
+        <label>Shop name<input name="shopName" [(ngModel)]="shopName" required placeholder="e.g. Manson House" /></label>
+        <label>Shop ID<input name="shopId" [(ngModel)]="shopId" required placeholder="e.g. KKD42" /></label>
+        <label>Shop location<input name="shopLocation" [(ngModel)]="shopLocation" required placeholder="City or branch location" /></label>
+        <label>Shop open date<input name="shopOpenDate" type="date" [max]="today" [(ngModel)]="shopOpenDate" required /></label>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="section-heading"><span>02</span><div><h2>Owner details</h2><p>The owner can manage this shop and its workers.</p></div></div>
+      <div class="field-grid" [ngModelGroup]="'owner'">
+        <label>Owner name<input name="name" [(ngModel)]="owner.name" required placeholder="Full name" /></label>
+        <label>Email<input name="email" type="email" [(ngModel)]="owner.email" required placeholder="owner@example.com" /></label>
+        <label>Contact number<input name="contactNumber" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" [(ngModel)]="owner.contactNumber" required placeholder="10-digit number (saved as +91)" /></label>
+        <label>Address<textarea name="address" [(ngModel)]="owner.address" required placeholder="Residential address"></textarea></label>
+      </div>
+    </section>
+
+    <section class="form-section cashier-section">
+      <div class="section-heading"><span>03</span><div><h2>Cashier details</h2><p>Add one or more cashiers for this shop. Each cashier receives a separate login.</p></div></div>
+      <div class="cashier-controls">
+        <label>Number of cashiers<input name="cashierCount" type="number" min="1" max="50" [(ngModel)]="cashierCount" (ngModelChange)="updateCashierCount()" required /></label>
+        <button type="button" class="secondary-btn add-cashier-btn" (click)="addCashier()">＋ Add cashier</button>
+      </div>
+      <div class="cashier-grid">
+        <section class="cashier-card form-section" *ngFor="let cashier of cashiers; let i = index">
+          <div class="cashier-heading"><h3>Cashier {{ i + 1 }}</h3><button type="button" class="remove-cashier-btn" *ngIf="cashiers.length > 1" (click)="removeCashier(i)" aria-label="Remove cashier">×</button></div>
+          <div class="field-grid single" [ngModelGroup]="'cashier' + i">
+            <label>Name<input [name]="'name' + i" [(ngModel)]="cashier.name" required placeholder="Full name" /></label>
+            <label>Email<input [name]="'email' + i" type="email" [(ngModel)]="cashier.email" required placeholder="cashier@example.com" /></label>
+            <label>Contact number<input [name]="'contactNumber' + i" type="tel" inputmode="numeric" pattern="[0-9]{10}" minlength="10" maxlength="10" [(ngModel)]="cashier.contactNumber" required placeholder="10-digit number (saved as +91)" /></label>
+            <label>Address<textarea [name]="'address' + i" [(ngModel)]="cashier.address" required placeholder="Address"></textarea></label>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <div class="form-footer">
+      <p class="error" *ngIf="error">{{ error }}</p>
+      <div><button type="button" class="secondary-btn" (click)="reset()">Clear form</button><button type="submit" class="primary-btn" [disabled]="registrationForm.invalid">Register shop and generate access</button></div>
+    </div>
+  </form>
+
+  <section *ngIf="credentials.length" class="success-panel">
+    <div class="success-mark">✓</div>
+    <p class="eyebrow">Registration complete</p>
+    <h2>{{ shopId.toUpperCase() }} is ready for account management</h2>
+    <p class="success-copy">Save these credentials securely. The owner and cashiers can use them to sign in and work with this shop.</p>
+    <div class="credential-list">
+      <article *ngFor="let credential of credentials" class="credential-card">
+        <span class="role-label">{{ credential.role }}</span><h3>{{ credential.name }}</h3>
+        <dl><dt>User ID</dt><dd>{{ credential.userId }}</dd><dt>Password</dt><dd>{{ credential.password }}</dd><dt>Email</dt><dd>{{ credential.email }}</dd></dl>
+      </article>
+    </div>
+    <div class="success-actions"><button class="primary-btn" (click)="goBack()">Go to dashboard</button><button class="secondary-btn" (click)="reset()">Register another shop</button></div>
+  </section>
+</div>

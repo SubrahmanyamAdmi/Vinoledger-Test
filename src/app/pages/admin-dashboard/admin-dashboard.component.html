@@ -1,0 +1,55 @@
+<div class="admin-container">
+  <!-- Header with Welcome and Logout -->
+  <header class="header">
+    <div class="welcome-section">
+      <h1>Welcome Back, <br><span class="admin-name">Admin Dashboard</span></h1>
+    </div>
+    <button class="logout-btn" (click)="logout()">→ Logout</button>
+  </header>
+
+  <!-- Revenue Card -->
+  <section class="revenue-card">
+    <h2>Total Revenue Today</h2>
+    <div class="revenue-amount">{{ totalRevenueToday }}</div>
+    <div class="revenue-icon">📈</div>
+  </section>
+
+  <!-- Main Menu Grid -->
+  <section class="menu-grid">
+    <button 
+      *ngFor="let item of menuItems" 
+      class="menu-item" 
+      (click)="navigateTo(item.route)"
+      [style.border-top]="'4px solid ' + item.color">
+      <div class="item-icon">{{ item.icon }}</div>
+      <div class="item-label">{{ item.label }}</div>
+    </button>
+  </section>
+
+  <!-- Quick Reports Section -->
+  <section class="quick-reports">
+    <h3>Quick Reports</h3>
+    <div class="reports-grid">
+      <button *ngFor="let report of quickReports" class="report-btn">
+        <div class="report-icon">{{ report.icon }}</div>
+        <div class="report-label">{{ report.label }}</div>
+      </button>
+    </div>
+  </section>
+
+  <!-- Footer Navigation -->
+  <footer class="footer-nav">
+    <button 
+      *ngFor="let nav of navigationItems" 
+      class="nav-item"
+      (click)="navigateTo(nav.route)">
+      <span class="nav-icon">{{ nav.icon }}</span>
+      <span class="nav-label">{{ nav.label }}</span>
+    </button>
+  </footer>
+
+  <!-- Bottom Branding -->
+  <div class="app-footer">
+    <p>VinoLedger Admin v2.4</p>
+  </div>
+</div>

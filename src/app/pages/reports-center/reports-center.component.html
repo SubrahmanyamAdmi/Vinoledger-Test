@@ -1,0 +1,113 @@
+<div class="reports-shell">
+  <header class="topbar">
+    <div class="header-left">
+      <button type="button" class="back-btn" aria-label="Go back" (click)="goBack()">‹</button>
+      <h2>Owner Reports</h2>
+    </div>
+
+    <button class="logout-btn" type="button" (click)="logout()" aria-label="Logout">
+      <span>↪</span>
+    </button>
+  </header>
+
+  <main class="content-wrap">
+    <section class="range-panel">
+      <label>Date Range</label>
+      <div class="date-row">
+        <label class="date-field">
+          <span class="calendar">🗓</span>
+          <input type="date" [(ngModel)]="startDate" [max]="today" (ngModelChange)="onStartDateChange()" />
+        </label>
+
+        <label class="date-field">
+          <span class="calendar">🗓</span>
+          <input type="date" [(ngModel)]="endDate" [min]="startDate || null" [max]="today" (ngModelChange)="onEndDateChange()" />
+        </label>
+      </div>
+      <p class="date-error" *ngIf="dateError">{{ dateError }}</p>
+    </section>
+
+    <section class="report-select">
+      <label>Select Report Type</label>
+      <select [(ngModel)]="reportType" (ngModelChange)="onReportTypeChange()">
+        <option value="">Select Report Type</option>
+        <option value="Sales Report">Sales Report</option>
+        <option value="Expense Report">Expense Report</option>
+        <option value="Stock Report">Stock Report</option>
+      </select>
+    </section>
+
+    <section class="summary-grid" *ngIf="reportReady && !dateError">
+      <div class="summary-card summary-light">
+        <span>{{ primaryLabel }}</span>
+        <strong>{{ reportType === 'Stock Report' ? '' : '₹' }}{{ primaryTotal | number:'1.2-2' }}</strong>
+      </div>
+
+      <div class="summary-card summary-green">
+        <span>{{ secondaryLabel }}</span>
+        <strong>{{ reportType === 'Expense Report' || reportType === 'Stock Report' ? (secondaryTotal | number:'1.0-0') : '₹' + (secondaryTotal | number:'1.2-2') }}</strong>
+      </div>
+    </section>
+
+    <section class="chart-panel" *ngIf="reportReady && !dateError">
+      <div class="panel-header">
+        <h3>{{ reportType }} Analysis</h3>
+        <span class="mini-icon">↗</span>
+      </div>
+
+      <div class="bar-chart" aria-label="Weekly sales distribution">
+        <div class="bar-group" *ngFor="let value of weeklyBars; let i = index">
+          <span class="bar" [style.height.%]="value"></span>
+          <small>{{ weeks[i] }}</small>
+        </div>
+      </div>
+
+      <div class="current-month">
+        <span class="dot"></span>
+        <span>{{ reportType === 'Expense Report' ? 'Expenses by submitted date' : reportType === 'Stock Report' ? 'Closing bottles by submitted date' : 'Sales by submitted date' }}</span>
+      </div>
+    </section>
+
+    <section class="donut-panel" *ngIf="reportReady && !dateError">
+      <h3>{{ reportType === 'Expense Report' ? 'Expenses by Day Sheet' : reportType === 'Stock Report' ? 'Stock by Brand Category' : 'Sales by Category' }}</h3>
+
+      <div class="donut-layout">
+        <div class="donut-chart" aria-label="Sales by category chart">
+          <div class="donut-hole"></div>
+        </div>
+
+        <ul class="legend-list">
+          <li *ngFor="let item of categoryData">
+            <span class="legend-dot" [style.background]="item.color"></span>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}%</strong>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <button class="download-btn" type="button" *ngIf="reportReady && !dateError" (click)="downloadReport()">
+      <span class="download-icon">⬇</span>
+      Download PDF Report
+    </button>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item active" type="button">
+      <span class="icon">⌂</span>
+      <span>Home</span>
+    </button>
+    <button class="nav-item" type="button">
+      <span class="icon">▣</span>
+      <span>Stock</span>
+    </button>
+    <button class="nav-item" type="button">
+      <span class="icon">▤</span>
+      <span>Reports</span>
+    </button>
+    <button class="nav-item" type="button">
+      <span class="icon">⚙</span>
+      <span>Settings</span>
+    </button>
+  </nav>
+</div>

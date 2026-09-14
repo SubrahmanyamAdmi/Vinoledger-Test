@@ -1,5 +1,18 @@
 # Vinoledger
 
+## Firebase backend setup
+
+The application uses Firebase Authentication and Cloud Firestore. Before using real backend data:
+
+1. Create a Firebase project at https://console.firebase.google.com/.
+2. Enable **Authentication > Sign-in method > Email/Password**.
+3. Create a **Cloud Firestore** database in production mode.
+4. Register a web app in the Firebase project and copy its config into both `src/environments/environment.ts` and `src/environments/environment.prod.ts`.
+5. Create the first authenticated admin user, then create its Firestore document at `users/{firebaseUid}` with `{ "role": "Admin", "name": "...", "email": "..." }`.
+6. Deploy the security rules from this project with `firebase deploy --only firestore:rules` after installing and logging into the Firebase CLI.
+
+The registration screen writes the shop to `shops/{SHOP_ID}` and owner/cashier profiles to `users/{USER_ID}`. Production login credentials should be created through a Firebase Admin SDK callable Cloud Function; do not store passwords in Firestore or rely on the current local demo-account fallback for production.
+
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 13.3.0.
 
 ## Development server
