@@ -14,12 +14,6 @@ import { RouterModule } from '@angular/router';
         <mat-nav-list>
           <a mat-list-item routerLink="/admin">Admin</a>
           <a mat-list-item routerLink="/owner">Owner</a>
-          <a mat-list-item routerLink="/daily-sales">Daily Sales</a>
-          <a mat-list-item routerLink="/inventory">Inventory</a>
-          <a mat-list-item routerLink="/expenses">Expenses</a>
-          <a mat-list-item routerLink="/accounting">Accounting</a>
-          <a mat-list-item routerLink="/reports">Reports</a>
-          <a mat-list-item routerLink="/management">Management</a>
           <a mat-list-item routerLink="/profile">Profile</a>
         </mat-nav-list>
       </mat-sidenav>

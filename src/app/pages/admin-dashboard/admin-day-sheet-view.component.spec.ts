@@ -1,6 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RouterTestingModule } from '@angular/router/testing';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { of } from 'rxjs';
+import { Router } from '@angular/router';
 import { AdminDaySheetViewComponent } from './admin-day-sheet-view.component';
+import { BusinessDataService } from '../../services/business-data.service';
 
 describe('AdminDaySheetViewComponent', () => {
   let component: AdminDaySheetViewComponent;
@@ -9,8 +12,18 @@ describe('AdminDaySheetViewComponent', () => {
   beforeEach(async () => {
     sessionStorage.clear();
 
+    const businessDataSpy = jasmine.createSpyObj('BusinessDataService', ['getShops', 'getDaySheets']);
+    businessDataSpy.getShops.and.returnValue(of([
+      { shopId: 'MH2041', id: 'MH2041', name: 'Marson House', owner: 'Suresh Varma', ownerName: 'Suresh Varma', openingDate: '2026-09-01' }
+    ]));
+    businessDataSpy.getDaySheets.and.returnValue(of([]));
+
     await TestBed.configureTestingModule({
-      imports: [AdminDaySheetViewComponent, RouterTestingModule]
+      imports: [AdminDaySheetViewComponent, BrowserAnimationsModule],
+      providers: [
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: BusinessDataService, useValue: businessDataSpy }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(AdminDaySheetViewComponent);

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
+import { IconComponent } from '../../shared/icon/icon.component';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
@@ -13,6 +14,7 @@ type ParsedInvoice = { rows: InvoiceRow[]; amount: number | null };
 type InvoiceRow = {
   code: string;
   brand: string;
+  productType: string;
   size: number;
   cases: number;
   bottles: number;
@@ -22,11 +24,11 @@ type InvoiceRow = {
   sizeOptions: BrandSize[];
   customSize: string;
 };
-@Component({ selector: 'app-invoice-entry', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './invoice-entry.component.html', styleUrls: ['./invoice-entry.component.scss'] })
+@Component({ selector: 'app-invoice-entry', standalone: true, imports: [CommonModule, FormsModule, IconComponent], templateUrl: './invoice-entry.component.html', styleUrls: ['./invoice-entry.component.scss'] })
 export class InvoiceEntryComponent {
   shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{"id":"KKD41","owner":"Y Bathalaswamy"}');
   date = sessionStorage.getItem('vinoledger.date') || new Date().toISOString().slice(0, 10);
-  rows: InvoiceRow[] = [this.createRow('MH2094', 'Manson House')];
+  rows: InvoiceRow[] = [this.createRow('', '')];
   invoiceValue: number | null = null;
   confirmationOpen = false;
   isSaving = false;
@@ -37,9 +39,27 @@ export class InvoiceEntryComponent {
   uploadedInvoiceData = '';
   uploadedInvoiceType = '';
   isParsingInvoice = false;
+  openingStockExists = false;
+  openingStockDate = '';
+  openingStockStateLoaded = false;
   constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/pdf.worker.min.js';
-    this.syncBrand(this.rows[0]);
+    const user = this.auth.currentUser();
+    const shopId = String(user?.role === 'User' ? user.shopId || this.shop.id : this.shop.id || user?.shopId || '').trim();
+    if (user?.role === 'User' && shopId) {
+      this.shop = { ...this.shop, id: shopId };
+    }
+    if (!shopId) {
+      this.openingStockStateLoaded = true;
+      return;
+    }
+    this.businessData.getOpeningStock(shopId).then((record) => {
+      this.openingStockExists = !!record && record.status !== 'draft';
+      this.openingStockDate = String(record?.date || '').slice(0, 10);
+      this.openingStockStateLoaded = true;
+    }).catch(() => {
+      this.openingStockStateLoaded = true;
+    });
   }
   goBack() { this.router.navigateByUrl('/sheet-date'); }
   update(row: InvoiceRow) {
@@ -48,6 +68,29 @@ export class InvoiceEntryComponent {
   }
   addRow(source?: InvoiceRow) {
     this.rows.push(this.createRow(source?.code || '', source?.brand || ''));
+  }
+
+  addNewBrand() {
+    if (this.hasOpeningStockData) {
+      return;
+    }
+    this.addRow();
+  }
+
+  get hasOpeningStockData() {
+    if (!this.openingStockStateLoaded) {
+      return true;
+    }
+    const key = `vinoledger.daySheet.${this.normalize(String(this.shop.id || ''))}.${this.normalize(String(this.date || ''))}`;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(key) || '[]');
+      const hasCurrentSheetOpeningStock = Array.isArray(saved) && saved.some((record: any) =>
+        (record.sizes || []).some((size: any) => Number(size.opening || 0) > 0)
+      );
+      return hasCurrentSheetOpeningStock || (this.openingStockExists && this.date === this.openingStockDate);
+    } catch {
+      return false;
+    }
   }
   get totalCases() {
     return this.rows.reduce((total, row) => total + Math.max(0, Number(row.cases) || 0), 0);
@@ -67,6 +110,7 @@ export class InvoiceEntryComponent {
     if (match) {
       row.code = match.code;
       row.brand = match.brand;
+      row.productType = this.productTypeForBrand(match.brand);
       row.isExistingBrand = true;
       row.sizeOptions = [...match.sizes];
       const selectedSize = row.sizeOptions.find((size) => size.size === row.size) || row.sizeOptions[0];
@@ -81,6 +125,9 @@ export class InvoiceEntryComponent {
   }
   selectBrand(row: InvoiceRow, value: string) {
     const search = this.normalize(value);
+    if (search.length < 4) {
+      return;
+    }
     const option = this.loadBrandOptions().find((item) =>
       this.normalize(`${item.code} ${item.brand}`) === search ||
       this.normalize(item.code) === search ||
@@ -106,13 +153,12 @@ export class InvoiceEntryComponent {
     this.update(row);
   }
   sizeChanged(row: InvoiceRow) {
-    const selected = row.sizeOptions.find((option) => option.size === Number(row.size));
-    if (selected) row.bottlesPerCase = selected.bottlesPerCase;
+    row.bottlesPerCase = this.bottlesPerCaseForSize(row.size);
     this.update(row);
   }
   private createRow(code: string, brand: string): InvoiceRow {
     return {
-      code, brand, size: 750, cases: 0, bottles: 0, prtDelivered: 0,
+      code, brand, productType: '', size: 750, cases: 0, bottles: 0, prtDelivered: 0,
       bottlesPerCase: 0, isExistingBrand: false, sizeOptions: [{ size: 750, bottlesPerCase: 0 }], customSize: ''
     };
   }
@@ -155,7 +201,7 @@ export class InvoiceEntryComponent {
       description: this.uploadedInvoiceName,
       totalCases: Number(this.totalCases),
       rows: this.rows.map(row => ({
-        code: row.code, brand: row.brand, size: row.size, cases: row.cases,
+        code: row.code, brand: row.brand, productType: row.productType, size: row.size, cases: row.cases,
         bottlesPerCase: row.bottlesPerCase, prtDelivered: row.prtDelivered, bottles: row.bottles
       })),
       fileName: this.uploadedInvoiceName,
@@ -243,17 +289,18 @@ export class InvoiceEntryComponent {
       amount = amount ?? this.findInvoiceAmount(matrix.flat().map((value) => String(value ?? '')));
       matrix.forEach((line) => {
         const values = line.map((value) => String(value ?? '').trim());
-        const code = values.find((value) => /^C\d+$/i.test(value)) || '';
+        const codeIndex = values.findIndex((value, index) => index > 0 && /^(?:[A-Z]+)?\d+$/i.test(value));
+        const code = codeIndex >= 0 ? values[codeIndex] : '';
         const pack = values.find((value) => /\d+\s*\/\s*\d+/.test(value)) || '';
         if (!code || !pack) return;
         const packMatch = pack.match(/(\d+)\s*\/\s*(\d+)/);
         if (!packMatch) return;
-        const codeIndex = values.indexOf(code);
         const packIndex = values.indexOf(pack);
-        const brand = values.slice(codeIndex + 1, packIndex).filter(Boolean).join(' ');
+        const brand = values.slice(codeIndex + 1, packIndex).filter((value) => !/^(BEER|WHISKY|BRANDY|WINE|VODKA|RUM)$/i.test(value)).join(' ');
+        const productType = values.find((value) => /^(BEER|WHISKY|BRANDY|WINE|VODKA|RUM)$/i.test(value)) || '';
         const cases = Number(values[packIndex + 1]) || 0;
         const prtDelivered = Number(values[packIndex + 2]) || 0;
-        rows.push(this.createImportedRow(code, brand, Number(packMatch[2]), Number(packMatch[1]), cases, prtDelivered));
+        rows.push(this.createImportedRow(code, brand, productType, Number(packMatch[2]), Number(packMatch[1]), cases, prtDelivered));
       });
     });
     return { rows, amount };
@@ -268,24 +315,37 @@ export class InvoiceEntryComponent {
     }
     const rows: InvoiceRow[] = [];
     const compact = text.replace(/\s+/g, ' ').trim();
-    const rowPattern = /(?:^|\s)(\d+)\s+(C\d+)\s+([\s\S]*?)\s+(\d+)\s*\/\s*(\d+)\s+(\d+)\s+(\d+)/gi;
+    const rowPattern = /(?:^|\s)(\d+)\s+((?:[A-Z]+)?\d+)\s+(.+?)\s+(BEER|WHISKY|BRANDY|WINE|VODKA|RUM)\s+([A-Z])\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\/\s*([\d.]+)\s+(\d+)(?=\s+\d+\s+(?:[A-Z]+)?\d+\s+|\s+ICDC\d+|\s+TIN\s+No:|\s+Duplicate Copy|$)/gi;
     let match: RegExpExecArray | null;
     while ((match = rowPattern.exec(compact))) {
-      rows.push(this.createImportedRow(match[2], match[3], Number(match[5]), Number(match[4]), Number(match[6]), Number(match[7])));
+      rows.push(this.createImportedRow(match[2], match[3], match[4], Number(match[6]), Number(match[5]), Number(match[7]), Number(match[8])));
     }
     return { rows, amount: this.findInvoiceAmount([compact]) };
   }
-  private createImportedRow(code: string, brand: string, size: number, bottlesPerCase: number, cases: number, prtDelivered: number) {
+  private createImportedRow(code: string, brand: string, productType: string, size: number, bottlesPerCase: number, cases: number, prtDelivered: number) {
     const row = this.createRow(code, brand);
+    row.productType = productType;
     row.size = size;
-    row.bottlesPerCase = bottlesPerCase;
+    row.bottlesPerCase = this.bottlesPerCaseForSize(size) || bottlesPerCase;
     row.cases = cases;
     row.prtDelivered = prtDelivered;
     this.syncBrand(row);
+    row.code = code;
+    row.brand = brand;
     row.size = size;
-    row.bottlesPerCase = bottlesPerCase;
+    row.bottlesPerCase = this.bottlesPerCaseForSize(size) || bottlesPerCase;
     this.update(row);
     return row;
+  }
+  private bottlesPerCaseForSize(size: number | string) {
+    const packSizes: Record<number, number> = { 90: 96, 180: 48, 375: 24, 500: 24, 650: 12, 750: 12, 1000: 12 };
+    return packSizes[Number(size)] || 0;
+  }
+
+  private productTypeForBrand(brand: string) {
+    const value = String(brand || '').toUpperCase();
+    const types = ['BEER', 'WHISKY', 'BRANDY', 'WINE', 'VODKA', 'RUM'];
+    return types.find((type) => value.includes(type)) || '';
   }
   private readAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -321,11 +381,7 @@ export class InvoiceEntryComponent {
         if (aliasKey && !options.has(aliasKey)) options.set(aliasKey, current);
       });
     };
-    add('MH2094', 'Manson House', 1000, 12);
-    add('MH2094', 'Manson House', 750, 12);
-    add('MH2094', 'Manson House', 375, 24);
-    add('MH2094', 'Manson House', 180, 48);
-    add('MH2094', 'Manson House', 90, 96);
+
     add('C021', 'BUDWEISER MAGNUM BEER', 650, 12);
     add('C029', 'KALYANI BLACK LABEL STRONG BEER', 650, 12);
     add('C031', 'KARJURA XTRA STRONG BEER', 650, 12);
@@ -359,16 +415,45 @@ export class InvoiceEntryComponent {
     add('C591', 'STERLING RESERVE B7 CLASSIC FINE BLENDED WHISKY', 180, 48);
     add('C848', 'TI MANSION HOUSE PLATINUM FRENCH BRANDY', 375, 24);
     add('C848', 'TI MANSION HOUSE PLATINUM FRENCH BRANDY', 180, 48);
+
     try {
-      const brands = JSON.parse(localStorage.getItem('vinoledger.mrp.brands') || '[]');
-      brands.forEach((item: any) => (item.sizes || []).forEach((size: any) => add(
-        item.code,
-        item.brand,
-        size.sizeMl || size.size,
+      const activeShopId = String(this.shop?.id || this.auth.currentUser()?.shopId || '').trim();
+      const shopKeys = activeShopId ? [
+        `vinoledger.mrp.brands.${activeShopId}`,
+        `vinoledger.mrp.brands.${activeShopId.toUpperCase()}`,
+        `vinoledger.mrp.brands.${activeShopId.toLowerCase()}`
+      ] : [];
+      const globalKeys = ['vinoledger.mrp.brands.global', 'vinoledger.mrp.brands'];
+      const scannedKeys = Object.keys(localStorage)
+        .filter((key) => key.startsWith('vinoledger.mrp.brands.'))
+        .filter((key) => !shopKeys.includes(key) && !globalKeys.includes(key));
+
+      const mergedCatalogs: any[] = [];
+      const orderedKeys = [...globalKeys, ...shopKeys, ...scannedKeys];
+
+      orderedKeys.forEach((key) => {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return;
+          const brands = JSON.parse(raw);
+          if (Array.isArray(brands) && brands.length) {
+            mergedCatalogs.push(brands);
+          }
+        } catch {
+          // Ignore malformed catalog entries and continue.
+        }
+      });
+
+      const merged = this.mergeBrandOptionsByShop(mergedCatalogs);
+      merged.forEach((item: any) => (item.sizes || []).forEach((size: any) => add(
+        String(item.code || ''),
+        String(item.brand || ''),
+        Number(size.sizeMl || size.size || 0),
         Number(size.bottlesPerCase || size.packQty || 0),
         item.codes || []
       )));
     } catch { /* Keep invoice history available when catalog data is malformed. */ }
+
     try {
       const invoices = JSON.parse(localStorage.getItem('vinoledger.invoices') || '[]');
       invoices.forEach((invoice: any) => (invoice.rows || []).forEach((row: any) => add(row.code, row.brand, row.size, Number(row.bottlesPerCase || 0))));
@@ -381,6 +466,48 @@ export class InvoiceEntryComponent {
       ...option,
       sizes: this.uniqueSizes(option.sizes).sort((a, b) => a.size - b.size)
     }));
+  }
+
+  private mergeBrandOptionsByShop(catalogs: any[][]): any[] {
+    const byKey = new Map<string, any>();
+
+    catalogs.forEach((catalog) => {
+      catalog.forEach((brand: any) => {
+        const key = String(brand?.code || brand?.brand || '').trim() || String(brand?.brand || '').trim();
+        const existing = byKey.get(key) || {
+          brand: String(brand?.brand || '').trim(),
+          code: String(brand?.code || '').trim(),
+          codes: [],
+          sizes: []
+        };
+
+        existing.brand = existing.brand || String(brand?.brand || '').trim();
+        existing.code = existing.code || String(brand?.code || '').trim();
+        existing.codes = Array.from(new Set([...(existing.codes || []), ...(brand?.codes || []), existing.code, String(brand?.code || '').trim()].filter(Boolean)));
+
+        (brand?.sizes || []).forEach((size: any) => {
+          const sizeKey = `${Number(size?.sizeMl ?? size?.size ?? 0)}`;
+          const index = existing.sizes.findIndex((item: any) => `${Number(item?.sizeMl ?? item?.size ?? 0)}` === sizeKey);
+          const nextSize = {
+            size: Number(size?.sizeMl ?? size?.size ?? 0),
+            sizeMl: Number(size?.sizeMl ?? 0),
+            sizeCode: size?.sizeCode ? String(size.sizeCode).trim() : '',
+            mrp: Number(size?.mrp ?? 0),
+            bottlesPerCase: Number(size?.bottlesPerCase || size?.packQty || 0)
+          };
+
+          if (index >= 0) {
+            existing.sizes[index] = { ...existing.sizes[index], ...nextSize };
+          } else {
+            existing.sizes.push(nextSize);
+          }
+        });
+
+        byKey.set(key, existing);
+      });
+    });
+
+    return Array.from(byKey.values()).filter((brand: any) => brand.brand && brand.code && Array.isArray(brand.sizes) && brand.sizes.length);
   }
   private saveBrandSettings() {
     const settings = this.rows.filter((row) => row.code && row.brand && row.size > 0).map((row) => ({

@@ -3,22 +3,24 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { BusinessDataService } from '../../services/business-data.service';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 
 @Component({
   selector: 'app-admin-day-sheet-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent],
   templateUrl: './admin-day-sheet-view.component.html',
-  styleUrls: ['./admin-day-sheet-view.component.scss']
+  styleUrls: ['./admin-day-sheet-view.component.scss', './admin-page-theme.scss']
 })
 export class AdminDaySheetViewComponent implements OnInit {
-  shops: Array<{ id: string; name: string; owner: string }> = [];
+  shops: Array<{ id: string; name: string; owner: string; openingDate: string }> = [];
   private allDaySheets: any[] = [];
 
   selectedShopId = '';
   selectedDate = '';
   calendarMonth = new Date();
-  calendarWeeks: Array<Array<{ day: number; inMonth: boolean; isSelected: boolean; value: string }>> = [];
+  calendarWeeks: Array<Array<{ day: number; inMonth: boolean; isSelected: boolean; isSubmitted: boolean; isPending: boolean; isSelectable: boolean; value: string }>> = [];
   daySheetData: any = null;
   sheetFound = false;
   noSheetDialogOpen = false;
@@ -48,20 +50,39 @@ export class AdminDaySheetViewComponent implements OnInit {
   loadingShops = true;
   shopLoadError = '';
 
+  get shopOptions(): AppSelectOption[] {
+    return this.shops.map((shop) => ({ value: shop.id, label: `${shop.owner} - ${shop.id}` }));
+  }
+
   constructor(private router: Router, private businessData: BusinessDataService) {}
 
   ngOnInit() {
+    const fallbackShops = this.readFallbackShops();
+    if (fallbackShops.length) {
+      this.shops = fallbackShops;
+      this.selectedShopId = this.shops[0]?.id || '';
+      this.resetCalendarForSelectedShop();
+    }
+    this.loadingShops = false;
+
     this.businessData.getShops().subscribe({
       next: (shops: any[]) => {
-        this.shops = shops.map((shop) => ({
+        const mapped = (shops || []).map((shop) => ({
           id: String(shop.shopId || shop.id || ''),
           name: shop.name || shop.shopId || shop.id || '',
-          owner: shop.ownerName || shop.owner || 'N/A'
+          owner: shop.ownerName || shop.owner || 'N/A',
+          openingDate: this.normalizeDate(String(shop.openingDate || shop.createdAt || ''))
         })).filter((shop) => shop.id);
+
+        this.shops = mapped.length ? mapped : fallbackShops;
         this.selectedShopId = this.shops[0]?.id || '';
+        this.resetCalendarForSelectedShop();
         this.loadingShops = false;
       },
       error: () => {
+        this.shops = fallbackShops;
+        this.selectedShopId = this.shops[0]?.id || '';
+        this.resetCalendarForSelectedShop();
         this.shopLoadError = 'Unable to load shops from Firebase.';
         this.loadingShops = false;
       }
@@ -70,6 +91,7 @@ export class AdminDaySheetViewComponent implements OnInit {
     this.businessData.getDaySheets().subscribe({
       next: (sheets: any[]) => {
         this.allDaySheets = Array.isArray(sheets) ? sheets : [];
+        this.updateCalendar();
       },
       error: () => {
         this.allDaySheets = [];
@@ -96,19 +118,23 @@ export class AdminDaySheetViewComponent implements OnInit {
     const firstDay = new Date(year, month, 1);
     const startOffset = firstDay.getDay();
     const gridStart = new Date(year, month, 1 - startOffset);
-    const weeks: Array<Array<{ day: number; inMonth: boolean; isSelected: boolean; value: string }>> = [];
+    const weeks: Array<Array<{ day: number; inMonth: boolean; isSelected: boolean; isSubmitted: boolean; isPending: boolean; isSelectable: boolean; value: string }>> = [];
 
     for (let weekIndex = 0; weekIndex < 6; weekIndex++) {
-      const days = [] as Array<{ day: number; inMonth: boolean; isSelected: boolean; value: string }>;
+      const days = [] as Array<{ day: number; inMonth: boolean; isSelected: boolean; isSubmitted: boolean; isPending: boolean; isSelectable: boolean; value: string }>;
 
       for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
         const current = new Date(gridStart);
         current.setDate(gridStart.getDate() + (weekIndex * 7) + dayIndex);
         const value = this.toIsoDate(current);
+        const isSelectable = this.isDateInSelectedShopRange(value);
         days.push({
           day: current.getDate(),
           inMonth: current.getMonth() === month,
           isSelected: value === this.selectedDate,
+          isSubmitted: isSelectable && this.isSubmittedDate(value),
+          isPending: isSelectable && !this.isSubmittedDate(value),
+          isSelectable,
           value
         });
       }
@@ -131,8 +157,12 @@ export class AdminDaySheetViewComponent implements OnInit {
     this.updateCalendar();
   }
 
+  onShopChanged() {
+    this.resetCalendarForSelectedShop();
+  }
+
   selectDate(value: string) {
-    if (!value) {
+    if (!value || !this.isDateInSelectedShopRange(value)) {
       return;
     }
     this.selectedDate = value;
@@ -145,6 +175,51 @@ export class AdminDaySheetViewComponent implements OnInit {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private resetCalendarForSelectedShop() {
+    const openingDate = this.selectedShop?.openingDate || this.toIsoDate(new Date());
+    this.selectedDate = openingDate;
+    this.calendarMonth = new Date(`${openingDate}T00:00:00`);
+    this.updateCalendar();
+  }
+
+  private get selectedShop() {
+    return this.shops.find((shop) => this.normalizeShopId(shop.id) === this.normalizeShopId(this.selectedShopId));
+  }
+
+  private isDateInSelectedShopRange(value: string) {
+    const openingDate = this.selectedShop?.openingDate || '';
+    const today = this.toIsoDate(new Date());
+    return Boolean(this.selectedShopId && openingDate && value >= openingDate && value <= today);
+  }
+
+  private isSubmittedDate(value: string) {
+    const selectedShopId = this.normalizeShopId(this.selectedShopId);
+    return this.allDaySheets.some((sheet: any) =>
+      this.normalizeShopId(String(sheet.shopId || sheet.shop?.id || '')) === selectedShopId &&
+      this.normalizeDate(String(sheet.date || '')) === value
+    );
+  }
+
+  private readFallbackShops(): Array<{ id: string; name: string; owner: string; openingDate: string }> {
+    const fallback = [
+      {
+        shopId: 'KKD41',
+        id: 'KKD41',
+        name: 'VinoLedger Test Shop',
+        ownerName: 'Y Bathalaswamy',
+        owner: 'Y Bathalaswamy',
+        openingDate: '2026-09-01'
+      }
+    ];
+
+    return fallback.map((shop) => ({
+      id: String(shop.shopId || shop.id || ''),
+      name: shop.name || shop.shopId || shop.id || '',
+      owner: shop.ownerName || shop.owner || 'N/A',
+      openingDate: this.normalizeDate(String(shop.openingDate || '2026-09-01'))
+    })).filter((shop) => shop.id);
   }
 
   getShopOwner(): string {

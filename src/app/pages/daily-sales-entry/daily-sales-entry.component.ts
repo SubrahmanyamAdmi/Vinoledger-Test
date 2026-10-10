@@ -6,11 +6,12 @@ import { TopbarComponent } from '../../shared/topbar/topbar.component';
 import { SidenavComponent } from '../../shared/sidenav/sidenav.component';
 import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 @Component({
   selector: 'app-daily-sales-entry',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatToolbarModule, TopbarComponent, SidenavComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatToolbarModule, TopbarComponent, SidenavComponent, IconComponent],
   templateUrl: './daily-sales-entry.component.html',
   styleUrls: ['./daily-sales-entry.component.scss']
 })
@@ -20,7 +21,7 @@ export class DailySalesEntryComponent {
   search = '';
   saveError = '';
   isSaving = false;
-  selectedBrand = { name: 'Manson House', code: 'MH2094' };
+  selectedBrand = { name: '', code: '' };
   rows = [
     { size: '1000ml', bottles: 0, price: 950 },
     { size: '750ml', bottles: 0, price: 720 },
@@ -32,8 +33,8 @@ export class DailySalesEntryComponent {
   get total() { return this.rows.reduce((sum, row) => sum + row.bottles * row.price, 0); }
   findBrand() {
     const term = this.normalize(this.search);
-    if (!term) {
-      this.saveError = 'Enter a brand name or brand code to search.';
+    if (term.length < 4) {
+      this.saveError = 'Enter at least 4 characters to search.';
       return;
     }
 
@@ -58,32 +59,42 @@ export class DailySalesEntryComponent {
     if (this.isSaving) {
       return;
     }
-    const savedSheets = JSON.parse(sessionStorage.getItem(this.daySheetStorageKey()) || '[]');
-    const activeBrand = this.selectedBrand;
-    const brandName = this.normalize(activeBrand.name);
-    const brandCode = this.normalize(activeBrand.code);
+
+    const activeBrand = this.selectedBrand || { name: '', code: '' };
+    const preferredBrandName = this.search && this.search.trim() ? this.search.trim() : activeBrand.name;
+    const brandName = this.normalize(preferredBrandName);
+    const brandCode = this.normalize(activeBrand.code || 'SEARCHED');
     const isPlaceholderBrand = !brandName;
+    const brandNameMatchesSelection = this.normalize(activeBrand.name || '') === brandName;
 
     if (isPlaceholderBrand) {
       this.saveError = 'Please search and select a valid brand before saving.';
       return;
     }
 
+    const savedSheets = this.readSavedSheets();
     const existingIndex = Array.isArray(savedSheets) ? savedSheets.findIndex((sheet) => {
       const savedBrand = this.normalize(sheet.brand);
       const savedCode = this.normalize(sheet.code);
-      const sameBrand = savedBrand === brandName;
-      const sameCode = brandCode !== 'searched' && savedCode === brandCode;
+      const sameBrand = savedBrand === brandName && brandNameMatchesSelection;
+      const sameCode = brandNameMatchesSelection && brandCode !== 'searched' && savedCode === brandCode;
       return sameBrand || sameCode;
     }) : -1;
 
     this.saveError = '';
     this.isSaving = true;
     const updatedRecord = {
-      brand: activeBrand.name,
-      code: activeBrand.code,
+      brand: preferredBrandName,
+      code: activeBrand.code || 'SEARCHED',
       date: this.date,
-      sizes: this.rows.map(row => ({ size: row.size, opening: 0, sales: row.bottles, closing: 0, price: row.price, amount: row.bottles * row.price })),
+      sizes: this.rows.map(row => ({
+        size: row.size,
+        opening: 0,
+        sales: row.bottles,
+        closing: row.bottles,
+        price: row.price,
+        amount: row.bottles * row.price
+      })),
       difference: 0,
       remarks: ''
     };
@@ -92,7 +103,10 @@ export class DailySalesEntryComponent {
     } else {
       savedSheets.push(updatedRecord);
     }
+
+    const legacyKey = 'vinoledger.daySheet';
     sessionStorage.setItem(this.daySheetStorageKey(), JSON.stringify(savedSheets));
+    sessionStorage.setItem(legacyKey, JSON.stringify(savedSheets));
     this.isSaving = false;
     this.router.navigate(['/day-sheet']);
   }
@@ -140,8 +154,14 @@ export class DailySalesEntryComponent {
 
   private readSavedSheets(): any[] {
     try {
-      const saved = JSON.parse(sessionStorage.getItem(this.daySheetStorageKey()) || '[]');
-      return Array.isArray(saved) ? saved : [];
+      const primary = JSON.parse(sessionStorage.getItem(this.daySheetStorageKey()) || '[]');
+      const legacy = JSON.parse(sessionStorage.getItem('vinoledger.daySheet') || '[]');
+      const combined = Array.isArray(primary) ? primary : [];
+      const legacyItems = Array.isArray(legacy) ? legacy : [];
+      if (combined.length || !legacyItems.length) {
+        return combined;
+      }
+      return legacyItems;
     } catch {
       return [];
     }
@@ -149,11 +169,81 @@ export class DailySalesEntryComponent {
 
   private loadBrandCatalog(): any[] {
     try {
-      const saved = JSON.parse(localStorage.getItem('vinoledger.mrp.brands') || '[]');
-      return Array.isArray(saved) ? this.mergeCatalogBrands(saved.map((brand) => this.normalizeCatalogBrand(brand))).filter((brand) => brand.code && brand.brand) : [];
+      const activeShopId = String(this.shop?.id || this.auth.currentUser()?.shopId || '').trim();
+      const shopKeys = activeShopId ? [
+        `vinoledger.mrp.brands.${activeShopId}`,
+        `vinoledger.mrp.brands.${activeShopId.toUpperCase()}`,
+        `vinoledger.mrp.brands.${activeShopId.toLowerCase()}`
+      ] : [];
+
+      const globalKeys = ['vinoledger.mrp.brands.global', 'vinoledger.mrp.brands'];
+      const scannedKeys = Object.keys(localStorage)
+        .filter((key) => key.startsWith('vinoledger.mrp.brands.'))
+        .filter((key) => !shopKeys.includes(key) && !globalKeys.includes(key));
+
+      const mergedCatalogs: any[] = [];
+      const orderedKeys = [...globalKeys, ...shopKeys, ...scannedKeys];
+
+      orderedKeys.forEach((key) => {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length) {
+            mergedCatalogs.push(parsed);
+          }
+        } catch {
+          // Ignore malformed catalog entries and continue.
+        }
+      });
+
+      const merged = this.mergeCatalogBrandsByShop(mergedCatalogs);
+      return merged.filter((brand) => brand.code && brand.brand);
     } catch {
       return [];
     }
+  }
+
+  private mergeCatalogBrandsByShop(catalogs: any[][]): any[] {
+    const byKey = new Map<string, any>();
+
+    catalogs.forEach((catalog) => {
+      catalog.forEach((brand: any) => {
+        const key = this.normalize(String(brand?.code || brand?.brand || '')) || this.normalize(String(brand?.brand || ''));
+        const existing = byKey.get(key) || {
+          brand: String(brand?.brand || '').trim(),
+          code: String(brand?.code || '').trim(),
+          codes: [],
+          sizes: []
+        };
+
+        existing.brand = existing.brand || String(brand?.brand || '').trim();
+        existing.code = existing.code || String(brand?.code || '').trim();
+        existing.codes = Array.from(new Set([...(existing.codes || []), ...(brand?.codes || []), existing.code, String(brand?.code || '').trim()].filter(Boolean)));
+
+        (brand?.sizes || []).forEach((size: any) => {
+          const sizeKey = `${this.normalize(String(size?.sizeMl ?? size?.size ?? ''))}|${this.normalize(String(size?.sizeCode ?? size?.size ?? ''))}`;
+          const index = existing.sizes.findIndex((item: any) => `${this.normalize(String(item?.sizeMl ?? item?.size ?? ''))}|${this.normalize(String(item?.sizeCode ?? item?.size ?? ''))}` === sizeKey);
+
+          const nextSize = {
+            size: String(size?.size || size?.sizeMl || '').trim(),
+            sizeCode: size?.sizeCode ? String(size.sizeCode).trim() : '',
+            sizeMl: Number(size?.sizeMl ?? 0),
+            mrp: Number(size?.mrp ?? 0)
+          };
+
+          if (index >= 0) {
+            existing.sizes[index] = { ...existing.sizes[index], ...nextSize };
+          } else {
+            existing.sizes.push(nextSize);
+          }
+        });
+
+        byKey.set(key, existing);
+      });
+    });
+
+    return Array.from(byKey.values()).filter((brand: any) => brand.brand && brand.code && Array.isArray(brand.sizes) && brand.sizes.length);
   }
 
   private daySheetStorageKey() {

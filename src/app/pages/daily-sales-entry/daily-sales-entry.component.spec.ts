@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
 import { DailySalesEntryComponent } from './daily-sales-entry.component';
+import { AuthService } from '../../services/auth.service';
 
 describe('DailySalesEntryComponent', () => {
   let component: DailySalesEntryComponent;
@@ -10,10 +10,16 @@ describe('DailySalesEntryComponent', () => {
 
   beforeEach(async () => {
     sessionStorage.clear();
+    localStorage.clear();
+
+    const authSpy = jasmine.createSpyObj('AuthService', ['currentUser'], {
+      currentUser: () => ({ shopId: 'KKD41', role: 'User' })
+    });
 
     await TestBed.configureTestingModule({
       imports: [DailySalesEntryComponent],
       providers: [
+        { provide: AuthService, useValue: authSpy },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } }
       ]
     }).compileComponents();
@@ -43,11 +49,11 @@ describe('DailySalesEntryComponent', () => {
 
   it('prefers the live typed search value over the stale default brand when saving', () => {
     sessionStorage.setItem('vinoledger.daySheet', JSON.stringify([
-      { brand: 'Manson House', code: 'MH2094', date: '2024-01-01', sizes: [], difference: 0, remarks: '' }
+      { brand: 'Test Brand', code: 'TEST', date: '2024-01-01', sizes: [], difference: 0, remarks: '' }
     ]));
 
     component.search = 'Royal Green';
-    component.selectedBrand = { name: 'Manson House', code: 'MH2094' };
+    component.selectedBrand = { name: 'Test Brand', code: 'TEST' };
     component.rows = [
       { size: '1000ml', bottles: 10, price: 950 },
       { size: '750ml', bottles: 20, price: 720 }

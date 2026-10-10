@@ -3,15 +3,17 @@ import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService, GeneratedCredential, ShopPersonRegistration, ShopRegistration } from '../../services/auth.service';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
 
 interface PersonForm extends ShopPersonRegistration {}
 
 @Component({
   selector: 'app-admin-register-owner',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent, AppDateInputComponent],
   templateUrl: './admin-register-owner.component.html',
-  styleUrls: ['./admin-register-owner.component.scss'],
+  styleUrls: ['./admin-register-owner.component.scss', './admin-page-theme.scss'],
 })
 export class AdminRegisterOwnerComponent {
   private readonly auth = inject(AuthService);

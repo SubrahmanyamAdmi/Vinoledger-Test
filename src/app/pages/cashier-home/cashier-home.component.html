@@ -1,13 +1,34 @@
-<main class="shell">
-  <header class="topbar"><div class="mark">VL</div><div><strong>VinoLedger</strong><span>Cashier workspace</span></div><button (click)="auth.logout()">Logout</button></header>
-  <section class="content">
-    <div class="eyebrow">SHIFT INITIALIZATION</div><h1>Select your shop</h1><p class="intro">Choose the assigned shop to open today's inventory and sales sheet.</p>
-    <div class="panel">
-      <label for="shop">Select Shop ID</label>
-      <select id="shop" [(ngModel)]="shopId"><option value="">Choose target shop...</option><option *ngFor="let shop of shops" [value]="shop.id">{{ shop.id }} · {{ shop.name }}</option></select>
-      <div class="shop-preview" *ngIf="selectedShop"><span class="pin">⌂</span><div><strong>{{ selectedShop.name }}</strong><small>{{ selectedShop.id }} · {{ selectedShop.owner }} · {{ selectedShop.cashier }}</small><small>{{ selectedShop.location }}</small></div></div>
-      <button class="primary" [disabled]="!shopId" (click)="proceed()">Proceed <span>→</span></button>
-    </div>
-  </section>
-  <footer>SECURE SESSION ACTIVE <span>•</span> {{ auth.currentUser()?.name || 'Cashier' }}</footer>
-</main>
+<div class="cashier-shell">
+  <div class="app-body">
+    <main class="content vl-page-content">
+      <div class="page-head">
+        <div class="page-head-copy">
+          <p class="eyebrow">Cashier Dashboard</p>
+          <h1>Welcome back, {{ auth.currentUser()?.name || 'Cashier' }}</h1>
+          <p class="subtitle">Manage the daily operations for your assigned shop.</p>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <button type="button" class="dash-card" *ngFor="let card of cards" (click)="navigateTo(card.route)">
+          <span class="card-icon">
+            <app-icon [name]="card.icon"></app-icon>
+          </span>
+          <span class="card-body">
+            <span class="card-title">{{ card.title }}</span>
+            <span class="card-desc">{{ card.desc }}</span>
+          </span>
+          <span class="card-chevron">
+            <app-icon name="chevron-right"></app-icon>
+          </span>
+        </button>
+      </div>
+
+      <footer class="page-footer desktop-only">
+        <span>VinoLedger &nbsp;|&nbsp; Smart Management for Wine Shops</span>
+        <span>{{ today }}</span>
+      </footer>
+    </main>
+  </div>
+
+</div>

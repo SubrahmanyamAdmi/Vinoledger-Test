@@ -1,0 +1,112 @@
+<div class="invoice-shell">
+  <main class="content-wrap vl-page-content">
+    <section class="owner-page-intro">
+      <p class="eyebrow">Inventory planning</p>
+      <h1>Generate Invoice</h1>
+      <p>Review stock recommendations based on recent sales, approve replenishment quantities, and prepare a depot purchase order.</p>
+    </section>
+
+    <section class="filter-panel">
+      <div class="filter-field">
+        <label for="period-select">Period</label>
+        <app-select id="period-select" ariaLabel="Select sales period" [options]="periodSelectOptions" [(ngModel)]="periodDays" (ngModelChange)="onPeriodChange()"></app-select>
+      </div>
+
+      <div class="filter-field">
+        <label for="target-select">Target Stock</label>
+        <app-select id="target-select" ariaLabel="Select target stock days" [options]="targetStockSelectOptions" [(ngModel)]="targetStockDays" (ngModelChange)="onTargetDaysChange()"></app-select>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <div class="summary-card summary-danger">
+        <span>Out of Stock</span>
+        <strong>{{ outOfStockCount }}</strong>
+      </div>
+      <div class="summary-card summary-danger">
+        <span>Critical</span>
+        <strong>{{ criticalCount }}</strong>
+      </div>
+      <div class="summary-card summary-warn">
+        <span>Reorder Soon</span>
+        <strong>{{ reorderSoonCount }}</strong>
+      </div>
+      <div class="summary-card summary-light">
+        <span>Monitor</span>
+        <strong>{{ monitorCount }}</strong>
+      </div>
+    </section>
+
+    <section class="reco-table-panel">
+      <h3>Purchase Recommendations</h3>
+      <div class="table-scroll" *ngIf="rows.length; else noRows">
+        <table class="reco-table">
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Brand</th>
+              <th>Size</th>
+              <th>Current</th>
+              <th>Avg/Day</th>
+              <th>Days Left</th>
+              <th>Suggested Cases</th>
+              <th>Approve Cases</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of rows">
+              <td>
+                <span class="status-pill" [class.out]="row.status === 'out'" [class.critical]="row.status === 'critical'" [class.reorder]="row.status === 'reorder'" [class.monitor]="row.status === 'monitor'" [class.healthy]="row.status === 'healthy'">
+                  {{ statusLabel[row.status] }}
+                </span>
+              </td>
+              <td>{{ row.code }} - {{ row.brand }}</td>
+              <td>{{ row.size }}</td>
+              <td>{{ row.currentStock }}</td>
+              <td>{{ row.avgDailySale }}</td>
+              <td>{{ isInfinite(row.daysLeft) ? '—' : row.daysLeft }}</td>
+              <td>{{ row.suggestedCases }}</td>
+              <td>
+                <input type="number" min="0" [(ngModel)]="row.approvedCases" [attr.aria-label]="'Approved cases for ' + row.brand" />
+              </td>
+              <td class="reason-cell">{{ row.reason }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noRows><p class="empty-note">No sales/stock data available yet to build recommendations.</p></ng-template>
+    </section>
+
+    <div class="reco-footer">
+      <span>Total Approved: {{ totalSuggestedCases }} cases ({{ totalSuggestedBottles }} bottles)</span>
+      <button type="button" class="primary-btn" [disabled]="!totalSuggestedCases" (click)="openPoDialog()">Review &amp; Generate Purchase Order</button>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" *ngIf="poDialogOpen" (click)="closePoDialog()">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="po-title" (click)="$event.stopPropagation()">
+      <button type="button" class="close-btn" aria-label="Close" (click)="closePoDialog()">×</button>
+      <h2 id="po-title">Generate Purchase Order</h2>
+      <p>{{ totalSuggestedCases }} cases ({{ totalSuggestedBottles }} bottles) across {{ actionableRows.length }} brand(s) will be included.</p>
+      <label class="field-label">Depot Name</label>
+      <input type="text" [(ngModel)]="depotName" placeholder="Enter depot name" />
+      <p class="error-text" *ngIf="poError">{{ poError }}</p>
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn" (click)="closePoDialog()">Cancel</button>
+        <button type="button" class="primary-btn" [disabled]="isSaving" (click)="generatePurchaseOrder()">
+          {{ isSaving ? 'Generating...' : 'Generate PO' }}
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="poSuccessOpen" (click)="closeSuccessDialog()">
+    <section class="modal success-modal" role="dialog" aria-modal="true" aria-labelledby="po-success-title" (click)="$event.stopPropagation()">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <h2 id="po-success-title">Purchase Order Generated</h2>
+      <p>{{ lastPoNumber }} has been created and downloaded.</p>
+      <button type="button" class="primary-btn" (click)="closeSuccessDialog()">Done</button>
+    </section>
+  </div>
+</div>

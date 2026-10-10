@@ -306,6 +306,47 @@
   cursor: pointer;
 }
 
+.date-row .submitted:not(.selected) {
+  background: #d9f0df;
+  color: #19733a;
+  font-weight: 700;
+}
+
+.date-row .pending:not(.selected) {
+  background: #f9dddd;
+  color: #a52d2d;
+  font-weight: 700;
+}
+
+.date-row span:not(.clickable) {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.calendar-legend {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+  color: #666;
+  font-size: 0.78rem;
+}
+
+.calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.submitted-dot { background: #35a65d; }
+.pending-dot { background: #d64545; }
+
 .date-row .selected {
   background: #1f8ec8;
   color: #fff;

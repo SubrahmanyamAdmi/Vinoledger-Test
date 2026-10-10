@@ -1,40 +1,38 @@
-<main class="sheet-shell">
-  <header class="topbar">
-    <div class="mark">VL</div>
-    <div>
-      <strong>VinoLedger</strong>
-      <span>Day sheet</span>
-    </div>
-    <button (click)="auth.logout()">Logout</button>
-  </header>
-
-  <section class="content">
+<main class="sheet-shell" [attr.aria-busy]="isLoadingRecords">
+  <section class="content vl-page-content">
     <div class="heading">
-      <div>
+      <div class="title-block">
         <div class="eyebrow">DAY SHEET</div>
-        <h1>{{ shop.owner }}</h1>
-        <p>{{ shop.id }} · {{ date | date:'dd MMM yyyy' }}</p>
+        <h1>{{ shop.name || shop.id }}</h1>
       </div>
 
-      <div class="action-row">
-        <button class="primary" (click)="addExpense()">＋ Add Expense</button>
-        <button class="primary" disabled title="Adding brand entries is disabled">＋ Add Brand Entry</button>
-        <button class="primary" (click)="addAdditionalProfit()">＋ Add Additional Profit</button>
-        <button class="primary" (click)="addCashDetails()">＋ Cash Details</button>
+      <div class="heading-details">
+        <p>{{ shop.owner || 'Shop team' }} · {{ shop.id }} · {{ date | date:'dd MMM yyyy' }}</p>
+        <div class="action-row">
+          <button class="primary" (click)="addExpense()">＋ Add Expense</button>
+          <button class="primary" (click)="addAdditionalProfit()">＋ Add Additional Profit</button>
+          <button class="primary" (click)="addCashDetails()">＋ Cash Details</button>
+        </div>
       </div>
+      <button type="button" class="standalone-close" *ngIf="isStandaloneTab" (click)="closeStandaloneTab()" aria-label="Close Day Sheet" title="Close Day Sheet">
+        <app-icon name="close"></app-icon>
+      </button>
     </div>
 
-    <div class="empty" *ngIf="isLoadingRecords">
-      <strong>Loading day sheet...</strong>
-      <span>Fetching invoice and stock data.</span>
+    <div class="page-loader" *ngIf="isLoadingRecords" role="status" aria-live="polite" aria-label="Loading day sheet">
+      <span class="page-loader-spinner" aria-hidden="true"></span>
+      <div>
+        <strong>Loading day sheet</strong>
+        <span>Fetching invoice and stock data.</span>
+      </div>
     </div>
 
     <div class="empty" *ngIf="!isLoadingRecords && !visibleRecords.length">
       <strong>No entries saved yet</strong>
-      <span>Save a brand sale entry to build this day's sheet.</span>
+      <span>Save a brand sale entry to build this day sheet.</span>
     </div>
 
-    <div class="table-wrap" *ngIf="!isLoadingRecords && visibleRecords.length">
+    <div class="table-wrap desktop-table" *ngIf="!isLoadingRecords && visibleRecords.length">
       <div class="table-scroll">
       <table>
         <thead>
@@ -53,8 +51,8 @@
           <tr *ngFor="let record of visibleRecords; let i = index">
             <td>{{ i + 1 }}</td>
             <td class="brand-cell">
-              <strong>{{ record.brand }}</strong>
-              <small>{{ record.code }}</small>
+              <strong>{{ record.code }} - {{ record.brand }}</strong>
+              <small>{{ record.productType || 'Product type not provided' }}</small>
             </td>
 
             <td class="stack-cell">
@@ -70,7 +68,14 @@
               <div class="size-stack editable-stack">
                 <div class="size-row" *ngFor="let item of record.sizes">
                   <span>{{ item.size }}</span>
-                  <input type="number" min="0" [value]="item.balanceEntered ? item.closing : ''" (input)="updateBalanceForSize(record, item, +$any($event.target).value)" [attr.aria-label]="record.brand + ' ' + item.size + ' balance stock'" />
+                  <input
+                    type="number"
+                    min="0"
+                    [attr.max]="item.opening || 0"
+                    [value]="item.balanceEntered ? item.closing : ''"
+                    (input)="onBalanceInput(record, item, $event)"
+                    [attr.aria-label]="record.brand + ' ' + item.size + ' balance stock'"
+                  />
                 </div>
               </div>
             </td>
@@ -121,9 +126,70 @@
       </table>
     </div>
 
+    <div class="mobile-cards" *ngIf="!isLoadingRecords && visibleRecords.length">
+      <article class="brand-card" *ngFor="let record of visibleRecords; let i = index">
+        <header class="brand-card-header">
+          <span class="brand-index">{{ i + 1 }}</span>
+          <div class="brand-card-title">
+            <strong>{{ record.code }} - {{ record.brand }}</strong>
+            <small>{{ record.productType || 'Product type not provided' }}</small>
+          </div>
+          <div class="brand-card-amount">₹ {{ totalAmount(record) | number:'1.2-2' }}</div>
+        </header>
+
+        <div class="size-card" *ngFor="let item of record.sizes">
+          <div class="size-card-metrics">
+            <span class="size-chip">{{ item.size }}</span>
+            <span class="size-metric"><label>Opening</label><strong>{{ item.opening }}</strong></span>
+            <span class="size-metric"><label>Sales</label><strong>{{ item.sales }}</strong></span>
+            <span class="size-metric"><label>MRP</label><strong>₹ {{ item.price | number }}</strong></span>
+          </div>
+          <label class="balance-field">
+            <span>Balance Stock</span>
+            <input
+              type="number"
+              min="0"
+              inputmode="numeric"
+              [attr.max]="item.opening || 0"
+              [value]="item.balanceEntered ? item.closing : ''"
+              (input)="onBalanceInput(record, item, $event)"
+              [attr.aria-label]="record.brand + ' ' + item.size + ' balance stock'"
+            />
+          </label>
+        </div>
+      </article>
+
+      <div class="mobile-summary">
+        <div class="summary-line"><span>Total Day Sale</span><strong>₹ {{ totalDaySale() | number:'1.2-2' }}</strong></div>
+        <div class="summary-line"><span>Additional Profit</span><strong>₹ {{ additionalProfitTotal() | number:'1.2-2' }}</strong></div>
+        <div class="summary-line"><span>Total Expenses</span><strong>₹ {{ totalExpenses() | number:'1.2-2' }}</strong></div>
+        <div class="summary-line grand"><span>Grand Total</span><strong>₹ {{ grandTotal() | number:'1.2-2' }}</strong></div>
+      </div>
+    </div>
+
     <div class="sheet-actions">
+      <button type="button" class="primary" (click)="saveDraft()">Save</button>
       <button type="button" class="primary" (click)="submitSheet()">Submit</button>
       <button type="button" class="secondary-btn" (click)="cancelSheet()">Cancel</button>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="missingMrpDialogOpen" (click)="closeMissingMrpDialog()">
+      <div class="expense-modal missing-mrp-modal" role="dialog" aria-modal="true" aria-labelledby="missing-mrp-title" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3 id="missing-mrp-title">MRP Value Required</h3>
+          <button type="button" class="close-btn" (click)="closeMissingMrpDialog()">×</button>
+        </div>
+        <div class="success-content missing-mrp-content">
+          <p>Contact Owner to update MRP value for:</p>
+          <ul>
+            <li *ngFor="let item of missingMrpItems">{{ item }}</li>
+          </ul>
+          <p>Day sheet submission is blocked until the MRP values are updated.</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="primary" (click)="closeMissingMrpDialog()">Close</button>
+        </div>
+      </div>
     </div>
 
     <div class="modal-backdrop" *ngIf="submitDialogOpen" (click)="closeSubmitDialog()">

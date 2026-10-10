@@ -1,14 +1,5 @@
 <main class="sheet-shell">
-  <header class="topbar">
-    <div class="mark">VL</div>
-    <div class="title-block">
-      <strong>VinoLedger</strong>
-      <span>Admin • Day Sheet Entry</span>
-    </div>
-    <button class="logout-btn" (click)="goBack()">Back</button>
-  </header>
-
-  <section class="content">
+  <section class="content vl-page-content vl-page-content--compact">
     <div class="eyebrow">SHEET INITIALIZATION</div>
     <h1>Select shop & date</h1>
 
@@ -23,25 +14,27 @@
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel" *ngIf="!isLoadingDates; else loadingDates">
       <label for="shop-select">Select shop</label>
-      <select id="shop-select" [(ngModel)]="selectedShopId" class="form-control" (ngModelChange)="onShopChange()">
-        <option value="" disabled>Select shop ID</option>
-        <option *ngFor="let shop of shops" [value]="shop.id">
-          {{ shop.owner }} - {{ shop.id }}
-        </option>
-      </select>
+      <app-select id="shop-select" ariaLabel="Select shop" placeholder="Select shop ID" [options]="shopOptions" [(ngModel)]="selectedShopId" (ngModelChange)="onShopChange()"></app-select>
 
       <label for="date">Select sheet date</label>
-      <input id="date" type="date" [max]="today" [(ngModel)]="date" (ngModelChange)="dateChanged()">
+      <app-date-input id="date" [min]="selectedShop.openingDate || null" [max]="today" [(ngModel)]="date" (ngModelChange)="dateChanged()" ariaLabel="Select sheet date"></app-date-input>
 
       <p *ngIf="dateError" class="date-error" role="alert">{{ dateError }}</p>
       <p>Opening a new sheet for this shop and date. Continue to daily sales entry to complete the sales record.</p>
     </div>
 
+    <ng-template #loadingDates>
+      <div class="panel page-loader" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading sheet dates for {{ selectedShop.id || 'the selected shop' }}...</p>
+      </div>
+    </ng-template>
+
     <div class="actions">
-      <button class="outline" (click)="open('/invoice')">＋ Add Invoice</button>
-      <button class="primary" (click)="open('/daily-sales')">Proceed <span>→</span></button>
+      <button class="outline" [disabled]="isLoadingDates" (click)="open('/invoice')">＋ Add Invoice</button>
+      <button class="primary" [disabled]="isLoadingDates" (click)="open('/daily-sales')">Proceed <span>→</span></button>
     </div>
   </section>
 

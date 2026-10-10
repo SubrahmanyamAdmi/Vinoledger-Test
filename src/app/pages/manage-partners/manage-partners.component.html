@@ -1,0 +1,457 @@
+<main class="partners-page">
+  <section class="content-wrap vl-page-content">
+    <div class="page-loader" *ngIf="isLoading" aria-live="polite" aria-busy="true">
+      <div class="loader-spinner"></div>
+      <p>Loading partners...</p>
+    </div>
+
+    <ng-container *ngIf="!selectedPartner && !isLoading">
+      <div class="page-heading">
+        <div>
+          <span class="eyebrow">PARTNER MANAGEMENT</span>
+          <h1>Manage Partners</h1>
+          <p *ngIf="!isCashier">Set up the partner roster and profit-sharing structure for shop {{ shopId }}.</p>
+          <p *ngIf="isCashier">View partner transaction records for shop {{ shopId }}.</p>
+        </div>
+        <button *ngIf="auth.currentUser()?.role !== 'Owner'" class="app-back-btn" type="button" (click)="goBack()">
+          <app-icon name="chevron-left"></app-icon>
+          <span>Back to Dashboard</span>
+        </button>
+      </div>
+
+      <div class="state-message error" *ngIf="!isCashier && error" role="alert">{{ error }}</div>
+      <div class="state-message success" *ngIf="!isCashier && message" role="status">{{ message }}</div>
+
+      <section class="setup-panel empty-partners" *ngIf="!partners.length && !isCashier">
+        <div class="empty-partners-icon"><app-icon name="partners"></app-icon></div>
+        <div class="empty-partners-copy">
+          <span class="eyebrow">GET STARTED</span>
+          <h2>Build your partner roster</h2>
+          <p>Create the partner records for this shop, then add each partner's details and profit share.</p>
+        </div>
+        <div class="setup-form">
+          <label for="partner-count">Number of Partners</label>
+          <div class="setup-row">
+            <input id="partner-count" type="number" min="1" max="100" [(ngModel)]="partnerCount" placeholder="Enter number of partners" />
+            <button class="primary" type="button" (click)="createPartnerRows()">Create Partner List</button>
+          </div>
+        </div>
+      </section>
+      <div class="state-message" *ngIf="!partners.length && isCashier">No partner records are available for this shop.</div>
+
+      <section class="partners-panel" *ngIf="partners.length && !isLoading">
+        <div class="panel-heading" *ngIf="!isCashier || activeTab === 'details'">
+          <div>
+            <span class="eyebrow">PARTNER DETAILS</span>
+            <h2>{{ partners.length }} Partner{{ partners.length === 1 ? '' : 's' }}</h2>
+          </div>
+          <div class="share-total" [class.invalid]="!isValidShare">
+            <span>Total Profit Share</span>
+            <strong>{{ totalProfitShare | number:'1.0-2' }}%</strong>
+          </div>
+        </div>
+
+        <div class="tab-row" role="tablist" aria-label="Partner tabs">
+          <button type="button" class="tab-button" [class.active]="activeTab === 'transactions'" (click)="activeTab = 'transactions'">Partner Transaction Details</button>
+          <button *ngIf="showOwnerDetailsTab" type="button" class="tab-button" [class.active]="activeTab === 'details'" (click)="activeTab = 'details'">Partner Details</button>
+        </div>
+
+        <div *ngIf="activeTab === 'transactions'" class="tab-panel transactions-panel">
+          <div class="transaction-summary-grid">
+            <article class="transaction-partner-card" *ngFor="let item of partnerTransactionSummary" (click)="openPartnerDetails(item.partner)">
+              <div class="partner-summary-header">
+                <div class="mini-avatar">{{ item.partner.name.charAt(0) }}</div>
+                <div>
+                  <h3>{{ item.partner.name }}</h3>
+                  <p>{{ item.contact }}</p>
+                </div>
+              </div>
+              <div class="partner-summary-body">
+                <span>Pending</span>
+                <strong>₹{{ item.pending | number:'1.2-2' }}</strong>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div *ngIf="activeTab === 'details'" class="tab-panel">
+          <section class="setup-panel" *ngIf="showSetupPanel">
+            <label for="partner-count">Number of Partners</label>
+            <div class="setup-row">
+              <input id="partner-count" type="number" min="1" max="100" [(ngModel)]="partnerCount" placeholder="Enter number of partners" />
+              <button class="primary" type="button" (click)="createPartnerRows()">Create Partner List</button>
+            </div>
+            <p class="hint">Partner records are generated automatically from the number entered.</p>
+          </section>
+
+          <div class="partner-list">
+            <article class="partner-card" *ngFor="let partner of partners; let i = index" (click)="openPartnerDetails(partner)" [class.clickable-card]="true">
+              <div class="partner-card-heading">
+                <div class="partner-number">{{ i + 1 }}</div>
+                <div><strong>Partner {{ i + 1 }}</strong><span>{{ partner.id }}</span></div>
+                <button
+                  type="button"
+                  class="delete-partner-btn"
+                  [disabled]="!isEditing"
+                  (click)="$event.stopPropagation(); deletePartner(i)"
+                  [attr.aria-label]="'Delete partner ' + (i + 1)"
+                  title="Delete partner"
+                >
+                  🗑
+                </button>
+              </div>
+              <div class="form-grid" (click)="$event.stopPropagation()">
+                <label>Name<input type="text" [(ngModel)]="partner.name" [disabled]="!isEditing" placeholder="Partner name" /></label>
+                <label>Mobile Number<input type="tel" [(ngModel)]="partner.mobile" [disabled]="!isEditing" placeholder="10-digit mobile number" /></label>
+                <label>Email<input type="email" [(ngModel)]="partner.email" [disabled]="!isEditing" placeholder="partner@example.com" /></label>
+                <label>Joining Date<app-date-input [(ngModel)]="partner.joiningDate" [disabled]="!isEditing" ariaLabel="Partner joining date"></app-date-input></label>
+                <label>Investment Amount<input type="number" min="0" step="0.01" [(ngModel)]="partner.investmentAmount" [disabled]="!isEditing" placeholder="0.00" /></label>
+                <label>Profit Share %<input type="number" min="0" max="100" step="0.01" [(ngModel)]="partner.profitShare" [disabled]="!isEditing" placeholder="0" /></label>
+                <label>Status<app-select ariaLabel="Partner status" [options]="partnerStatusOptions" [(ngModel)]="partner.status" [disabled]="!isEditing"></app-select></label>
+                <label class="notes-field">Notes<input type="text" [(ngModel)]="partner.notes" [disabled]="!isEditing" placeholder="Optional notes" /></label>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="save-row" *ngIf="!isCashier && activeTab === 'details'">
+          <p [class.invalid-text]="!isValidShare">Profit-share total must equal 100% before saving.</p>
+          <button class="primary" type="button" [disabled]="isSaving" (click)="toggleEditMode()">{{ isSaving ? 'Saving...' : editButtonLabel }}</button>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngIf="selectedPartner && isCashier">
+      <section class="cashier-ledger-page" role="region" aria-label="Cashier partner ledger form">
+        <div class="popup-header">
+          <div>
+            <span class="eyebrow">PARTNER LEDGER</span>
+            <h3>{{ selectedPartner.name }}</h3>
+          </div>
+          <button type="button" class="close-popup" (click)="goBack()">×</button>
+        </div>
+
+        <div class="popup-meta">
+          <div><span>Contact</span><strong>{{ selectedPartner.mobile }}</strong></div>
+          <div><span>Pending</span><strong>₹{{ getPendingForPartner(selectedPartner.name) | number:'1.2-2' }}</strong></div>
+        </div>
+
+        <div class="cashier-form">
+          <div class="form-row two-col">
+            <label>
+              <span>Transaction</span>
+              <app-select ariaLabel="Transaction type" [options]="transactionTypeOptions" [(ngModel)]="newTransactionDraft.transactionType"></app-select>
+            </label>
+
+            <label *ngIf="!isCashTransaction">
+              <span>Product</span>
+              <input type="text" [(ngModel)]="newTransactionDraft.product" placeholder="ANDHRA GOLD WHISKY" />
+            </label>
+
+            <label *ngIf="isCashTransaction">
+              <span>Amount</span>
+              <input type="number" min="0" step="0.01" [(ngModel)]="newTransactionDraft.amount" placeholder="12480" />
+            </label>
+          </div>
+
+          <div class="form-row two-col" *ngIf="!isCashTransaction">
+            <label>
+              <span>Quantity</span>
+              <input type="text" [(ngModel)]="newTransactionDraft.quantity" placeholder="2 Cases" />
+            </label>
+            <label>
+              <span>Amount</span>
+              <input type="number" min="0" step="0.01" [(ngModel)]="newTransactionDraft.amount" placeholder="12480" />
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label>
+              <span>{{ isCashTransaction ? 'Comment (Required)' : 'Comment (Optional)' }}</span>
+              <textarea rows="3" [(ngModel)]="newTransactionDraft.comment" [attr.required]="isCashTransaction ? true : null" [placeholder]="isCashTransaction ? 'Reason for cash taken by partner' : 'Optional notes'"></textarea>
+            </label>
+          </div>
+
+          <div class="form-row payment-group" role="radiogroup" aria-label="Payment status">
+            <span>Payment</span>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="cashier-payment-status" value="Pending" [(ngModel)]="newTransactionDraft.paymentStatus" />
+                <span class="radio-label"><span class="radio-dot"></span>Pending</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="cashier-payment-status" value="Paid" [(ngModel)]="newTransactionDraft.paymentStatus" />
+                <span class="radio-label"><span class="radio-dot"></span>Paid</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="popup-actions">
+            <button type="button" class="secondary" (click)="goBack()">Cancel</button>
+            <button type="button" class="primary" (click)="saveTransactionEntry()">Save</button>
+          </div>
+        </div>
+
+      </section>
+    </ng-container>
+
+    <ng-container *ngIf="selectedPartner && !isCashier && !selectedPartnerForPopup">
+      <div class="detail-page-heading">
+        <div>
+          <span class="eyebrow">PARTNER MANAGEMENT</span>
+          <h1>{{ selectedPartner.name }}</h1>
+          <p>View partner transactions, payments and profit sharing information.</p>
+        </div>
+        <button class="app-back-btn" type="button" (click)="goBack()">
+          <app-icon name="chevron-left"></app-icon>
+          <span>Back to Partner List</span>
+        </button>
+      </div>
+
+      <section class="partner-detail-page">
+        <div class="detail-header-card">
+          <div class="detail-identity">
+            <div class="detail-avatar">{{ selectedPartner.name.charAt(0) }}</div>
+            <div>
+              <h2>{{ selectedPartner.name }}</h2>
+              <p>{{ selectedPartner.mobile }}</p>
+            </div>
+          </div>
+          <span class="status-pill">{{ selectedPartner.status }}</span>
+          <div class="detail-meta-grid">
+            <div>
+              <span>Partner Code</span>
+              <strong>{{ selectedPartner.id }}</strong>
+            </div>
+            <div>
+              <span>Joining Date</span>
+              <strong>{{ selectedPartner.joiningDate }}</strong>
+            </div>
+            <div>
+              <span>Share %</span>
+              <strong>{{ selectedPartner.profitShare }}%</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-layout">
+          <div class="detail-main-panel">
+            <div class="detail-summary-grid">
+              <div class="summary-box">
+                <span>Total Stock Taken</span>
+                <strong>₹{{ getTotalForSelectedPartner('Stock Taken') | number:'1.2-2' }}</strong>
+                <small>{{ getStockTakenCountForSelectedPartner() }} entries</small>
+              </div>
+              <div class="summary-box">
+                <span>Total Paid</span>
+                <strong>₹{{ getPaidAmountForSelectedPartner() | number:'1.2-2' }}</strong>
+              </div>
+              <div class="summary-box danger">
+                <span>Pending Amount</span>
+                <strong>₹{{ selectedPartnerPending | number:'1.2-2' }}</strong>
+              </div>
+            </div>
+
+            <h2 class="partner-transactions-title">Partner Transactions</h2>
+
+            <div class="transaction-table-wrap">
+              <table class="transaction-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Product / Details</th>
+                    <th>Quantity</th>
+                    <th>Amount</th>
+                    <th>Payment Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let record of selectedPartnerTransactions">
+                    <td>
+                      <div class="transaction-date-cell">
+                        <span class="transaction-date">{{ record.createdAt | date:'dd-MM-yyyy' }}</span>
+                        <span class="transaction-time">{{ record.createdAt | date:'h:mm a' }}</span>
+                      </div>
+                    </td>
+                    <td><span class="type-badge" [class.cash-type]="record.transactionType === 'Cash'">{{ record.transactionType }}</span></td>
+                    <td>
+                      <div class="product-detail-cell">
+                        <strong>{{ record.product }}</strong>
+                        <small>{{ record.detail || '—' }}</small>
+                      </div>
+                    </td>
+                    <td>{{ record.quantity || '-' }}</td>
+                    <td>₹{{ record.amount | number:'1.2-2' }}</td>
+                    <td><span class="status-badge" [class.pending]="record.paymentStatus === 'Pending'" [class.paid]="record.paymentStatus === 'Paid'">{{ record.paymentStatus }}</span></td>
+                    <td>{{ record.comment || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="transaction-table-footer">
+              <span>{{ selectedPartnerTransactions.length ? 'Showing 1–' + selectedPartnerTransactions.length + ' of ' + selectedPartnerTransactions.length + ' transactions' : 'Showing 0 of 0 transactions' }}</span>
+              <div class="pagination-controls" [class.is-empty]="!selectedPartnerTransactions.length">
+                <button type="button" class="pagination-btn" aria-label="Previous page" [disabled]="!selectedPartnerTransactions.length">‹</button>
+                <button type="button" class="pagination-btn active" aria-label="Current page" [disabled]="!selectedPartnerTransactions.length">1</button>
+                <button type="button" class="pagination-btn" aria-label="Next page" [disabled]="!selectedPartnerTransactions.length">›</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="detail-side-panel">
+            <div class="side-card">
+              <h3>Partner Balance</h3>
+              <div class="side-amount">₹{{ selectedPartnerPending | number:'1.2-2' }}</div>
+              <p>Pending Amount</p>
+            </div>
+            <div class="side-card">
+              <h3>Profit Details</h3>
+              <div class="side-row"><span>Profit Allocated</span><strong>₹{{ getProfitAllocatedForSelectedPartner() | number:'1.2-2' }}</strong></div>
+              <div class="side-row"><span>Profit Paid</span><strong>₹{{ getProfitPaidForSelectedPartner() | number:'1.2-2' }}</strong></div>
+              <div class="side-row"><span>Profit Pending</span><strong>₹{{ selectedPartnerPending | number:'1.2-2' }}</strong></div>
+            </div>
+            <div class="side-card">
+              <h3>Investment</h3>
+              <div class="side-row"><span>Total Investment</span><strong>₹{{ selectedPartner.investmentAmount | number:'1.2-2' }}</strong></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </ng-container>
+  </section>
+</main>
+
+<div class="partner-popup-backdrop" *ngIf="selectedPartnerForPopup && !isCashier" (click)="closePartnerTransactionPopup()">
+  <div class="partner-popup" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+    <div class="popup-header">
+      <div>
+        <span class="eyebrow">PARTNER LEDGER</span>
+        <h3>{{ selectedPartnerForPopup.name }}</h3>
+      </div>
+      <button type="button" class="close-popup" (click)="closePartnerTransactionPopup()">×</button>
+    </div>
+
+    <div class="popup-meta">
+      <div><span>Contact</span><strong>{{ selectedPartnerForPopup.contact }}</strong></div>
+      <div><span>Pending</span><strong>₹{{ selectedPartnerForPopup.pending | number:'1.2-2' }}</strong></div>
+    </div>
+
+    <div class="cashier-form" *ngIf="isCashier">
+      <div class="form-row two-col">
+        <label>
+          <span>Transaction</span>
+          <app-select ariaLabel="Transaction type" [options]="transactionTypeOptions" [(ngModel)]="newTransactionDraft.transactionType"></app-select>
+        </label>
+
+        <label *ngIf="!isCashTransaction">
+          <span>Product</span>
+          <input type="text" [(ngModel)]="newTransactionDraft.product" placeholder="ANDHRA GOLD WHISKY" />
+        </label>
+
+        <label *ngIf="isCashTransaction">
+          <span>Amount</span>
+          <input type="number" min="0" step="0.01" [(ngModel)]="newTransactionDraft.amount" placeholder="12480" />
+        </label>
+      </div>
+
+      <div class="form-row two-col" *ngIf="!isCashTransaction">
+        <label>
+          <span>Quantity</span>
+          <input type="text" [(ngModel)]="newTransactionDraft.quantity" placeholder="2 Cases" />
+        </label>
+        <label>
+          <span>Amount</span>
+          <input type="number" min="0" step="0.01" [(ngModel)]="newTransactionDraft.amount" placeholder="12480" />
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>
+          <span>{{ isCashTransaction ? 'Comment (Required)' : 'Comment (Optional)' }}</span>
+          <textarea rows="3" [(ngModel)]="newTransactionDraft.comment" [attr.required]="isCashTransaction ? true : null" [placeholder]="isCashTransaction ? 'Reason for cash taken by partner' : 'Optional notes'"></textarea>
+        </label>
+      </div>
+
+      <div class="form-row payment-group" role="radiogroup" aria-label="Payment status">
+        <span>Payment</span>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="cashier-payment-status" value="Pending" [(ngModel)]="newTransactionDraft.paymentStatus" />
+            <span class="radio-label"><span class="radio-dot"></span>Pending</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="cashier-payment-status" value="Paid" [(ngModel)]="newTransactionDraft.paymentStatus" />
+            <span class="radio-label"><span class="radio-dot"></span>Paid</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="popup-actions">
+        <button type="button" class="secondary" (click)="closePartnerTransactionPopup()">Cancel</button>
+        <button type="button" class="primary" (click)="saveTransactionEntry()">Save</button>
+      </div>
+    </div>
+
+    <div class="owner-transaction-details" *ngIf="!isCashier">
+      <div class="owner-detail-row" *ngFor="let record of selectedPartnerForPopup.items">
+        <div class="owner-detail-item">
+          <span>Type</span>
+          <strong>{{ record.transactionType }}</strong>
+        </div>
+        <div class="owner-detail-item" *ngIf="record.transactionType === 'Stock Taken'">
+          <span>Product</span>
+          <strong>{{ record.product }}</strong>
+        </div>
+        <div class="owner-detail-item" *ngIf="record.transactionType === 'Stock Taken'">
+          <span>Quantity</span>
+          <strong>{{ record.quantity }}</strong>
+        </div>
+        <div class="owner-detail-item">
+          <span>Amount</span>
+          <strong>₹{{ record.amount | number:'1.2-2' }}</strong>
+        </div>
+        <div class="owner-detail-item">
+          <span>Payment</span>
+          <strong>{{ record.paymentStatus }}</strong>
+        </div>
+        <div class="owner-detail-item owner-detail-note" *ngIf="record.comment">
+          <span>Comment</span>
+          <strong>{{ record.comment }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="popup-transactions" *ngIf="selectedPartnerForPopup.items.length">
+      <article class="ledger-entry" *ngFor="let record of selectedPartnerForPopup.items">
+        <div class="ledger-row">
+          <div>
+            <h4>{{ record.transactionType }}</h4>
+            <p *ngIf="record.transactionType === 'Stock Taken'">{{ record.product }} · {{ record.quantity }}</p>
+            <p *ngIf="record.transactionType === 'Cash'">Cash withdrawal</p>
+            <p *ngIf="record.comment">Comment: {{ record.comment }}</p>
+          </div>
+          <strong>₹{{ record.amount | number:'1.2-2' }}</strong>
+        </div>
+
+        <div class="payment-controls">
+          <label>
+            <input type="radio" [attr.name]="getPaymentRadioName(record.id)" [checked]="record.paymentStatus === 'Pending'" (change)="setPaymentPending(record)" />
+            Pending
+          </label>
+          <label>
+            <input type="radio" [attr.name]="getPaymentRadioName(record.id)" [checked]="record.paymentStatus === 'Paid'" (change)="setPaymentPaid(record)" />
+            Paid
+          </label>
+        </div>
+
+        <div class="payment-row">
+          <span>Received</span>
+          <input #receivedInput type="number" min="0" [value]="record.paymentReceived" (input)="updateReceivedAmount(record, receivedInput.value)" />
+        </div>
+      </article>
+    </div>
+  </div>
+</div>

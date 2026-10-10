@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 type OwnerInvoice = {
   id: string;
@@ -22,15 +23,17 @@ type OwnerInvoice = {
 @Component({
   selector: 'app-owner-invoices',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   templateUrl: './owner-invoices.component.html',
   styleUrls: ['./owner-invoices.component.scss']
 })
 export class OwnerInvoicesComponent implements OnInit {
   invoices: OwnerInvoice[] = [];
   shopId = '';
+  shopName = '';
   ownerName = '';
   totalAmount = 0;
+  isLoading = true;
   private readonly invoiceStorageKey = 'vinoledger.invoices';
 
   constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService) {}
@@ -39,10 +42,17 @@ export class OwnerInvoicesComponent implements OnInit {
     const user = this.auth.currentUser();
     const sessionShop = this.readSessionShop();
     this.shopId = user?.shopId || sessionShop.id || 'MH2091';
+    this.shopName = sessionShop.name || this.auth.getRegisteredShops().find((shop) => shop.shopId === this.shopId)?.name || this.shopId;
     this.ownerName = user?.name || sessionShop.owner || 'Shop Owner';
     this.businessData.getInvoices().subscribe({
-      next: (invoices) => this.setInvoices(invoices.length ? invoices : this.readLegacyInvoices()),
-      error: () => this.setInvoices(this.readLegacyInvoices())
+      next: (invoices) => {
+        this.setInvoices(invoices.length ? invoices : this.readLegacyInvoices());
+        this.isLoading = false;
+      },
+      error: () => {
+        this.setInvoices(this.readLegacyInvoices());
+        this.isLoading = false;
+      }
     });
   }
 
@@ -121,7 +131,7 @@ export class OwnerInvoicesComponent implements OnInit {
     ];
   }
 
-  private readSessionShop(): { id?: string; owner?: string } {
+  private readSessionShop(): { id?: string; owner?: string; name?: string } {
     try {
       return JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{}');
     } catch {

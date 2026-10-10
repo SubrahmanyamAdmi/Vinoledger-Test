@@ -1,19 +1,10 @@
 <div class="contact-shell">
-  <header class="topbar">
-    <div class="brand-block">
-      <div class="brand-mark">VS</div>
-      <div class="brand-copy">
-        <span class="owner-name">{{ auth.currentUser()?.name || 'Shop Owner' }}</span>
-        <span class="owner-role">Owner Dashboard</span>
-      </div>
-    </div>
-
-    <button class="logout-btn" type="button" (click)="logout()" aria-label="Logout">↪</button>
-  </header>
-
-  <main class="content-wrap">
+  <main class="content-wrap vl-page-content">
     <div class="page-title-row">
-      <button class="back-btn" type="button" (click)="goBack()" aria-label="Back to dashboard">←</button>
+      <button *ngIf="auth.currentUser()?.role !== 'Owner'" class="app-back-btn" type="button" (click)="goBack()" aria-label="Back to dashboard">
+        <app-icon name="chevron-left"></app-icon>
+        <span>Back</span>
+      </button>
       <div>
         <h1>Contact Admin</h1>
         <p class="subtitle">Reach the VinoLedger administration team</p>
@@ -33,7 +24,7 @@
         <span class="contact-icon" aria-hidden="true">☎</span>
         <div>
           <span class="contact-label">Phone Number</span>
-          <a href="tel:+919876543210">+91 98765 43210</a>
+          <a href="tel:+919505379997">+91 9505379997</a>
         </div>
       </div>
 

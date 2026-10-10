@@ -1,21 +1,24 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService, InvoiceRecord, DaySheetRecord } from '../../services/business-data.service';
+import { FirestoreService } from '../../services/firestore.service';
 import { environment } from '../../../environments/environment';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 interface SheetSize { size: string; opening: number; sales: number; closing: number; price: number; amount: number; balanceEntered?: boolean; }
-interface SheetRecord { brand: string; code: string; date: string; sizes: SheetSize[]; difference?: number; remarks?: string; }
+interface SheetRecord { brand: string; code: string; productType?: string; date: string; sizes: SheetSize[]; difference?: number; remarks?: string; }
 interface ExpenseRow { name: string; value: number; comment: string; }
 interface ProfitRow { name: string; value: number; comment: string; }
 interface CashDetails { cashDeposit: number; phonePay: number; comments: string; bankChallanReceipt: string; }
 
-@Component({ selector: 'app-day-sheet', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './day-sheet.component.html', styleUrls: ['./day-sheet.component.scss'] })
+@Component({ selector: 'app-day-sheet', standalone: true, imports: [CommonModule, FormsModule, IconComponent], templateUrl: './day-sheet.component.html', styleUrls: ['./day-sheet.component.scss', '../admin-dashboard/admin-page-theme.scss'] })
 export class DaySheetComponent implements OnInit {
   shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{"id":"KKD41","owner":"Y Bathalaswamy"}');
   date = sessionStorage.getItem('vinoledger.date') || new Date().toISOString().slice(0, 10);
@@ -25,6 +28,7 @@ export class DaySheetComponent implements OnInit {
   additionalProfitDialogOpen = false;
   cashDetailsDialogOpen = false;
   submitDialogOpen = false;
+  missingMrpDialogOpen = false;
   submissionSuccessDialogOpen = false;
   isSubmitting = false;
   sheetAmount: number | null = null;
@@ -35,12 +39,109 @@ export class DaySheetComponent implements OnInit {
   expenseRows: ExpenseRow[] = this.createExpenseRows();
   cashDetails: CashDetails = this.loadCashDetails();
 
-  constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService) {
+  get isStandaloneTab(): boolean {
+    return this.route.snapshot.queryParamMap.get('view') === 'standalone';
+  }
+
+  constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService, private firestore: FirestoreService, private route: ActivatedRoute) {
     this.removeLegacyApplicationShare();
   }
 
-  ngOnInit() {
+  async ngOnInit() {
+    const query = this.route.snapshot.queryParamMap;
+    this.date = query.get('date') || this.date;
+    this.shop = {
+      ...this.shop,
+      id: query.get('shopId') || this.shop.id,
+      name: query.get('shopName') || this.shop.name,
+      owner: query.get('owner') || this.shop.owner,
+    };
+    this.loadDraftFromStorage();
+    await Promise.all([
+      this.syncMrpCatalogFromFirebase(),
+      this.syncOpeningStockFromFirebase(),
+    ]);
     this.refreshRecordsFromServer();
+  }
+
+  closeStandaloneTab() {
+    if (window.opener && !window.opener.closed) {
+      window.close();
+      return;
+    }
+    this.router.navigateByUrl('/sheet-date');
+  }
+
+  saveDraft() {
+    const payload = {
+      shopId: String(this.shop.id || ''),
+      date: this.date,
+      records: this.records,
+      expenses: JSON.parse(sessionStorage.getItem('vinoledger.expenseEntries') || '[]'),
+      additionalProfit: this.additionalProfitTotal(),
+      totalDaySale: this.totalDaySale(),
+      totalExpenses: this.totalExpenses(),
+      grandTotal: this.grandTotal(),
+      submittedAmount: this.sheetAmount ?? 0,
+      cashier: this.auth.currentUser()?.name || 'Cashier',
+      submittedByName: this.auth.currentUser()?.name || 'Cashier',
+      submittedByRole: this.auth.currentUser()?.role || 'User',
+      submittedAt: new Date().toISOString(),
+      draft: true,
+      status: 'draft' as const,
+      cashDetails: this.cashDetails,
+      additionalProfitRows: this.additionalProfitRows,
+    };
+
+    sessionStorage.setItem('vinoledger.daySheetDraft', JSON.stringify(payload));
+    localStorage.setItem(`vinoledger.daySheetDraft.${this.shop.id || 'KKD41'}.${this.date}`, JSON.stringify(payload));
+
+    if (this.isFirebaseConfigured()) {
+      this.businessData.saveDaySheetDraft(payload).catch(() => undefined);
+    }
+  }
+
+  private loadDraftFromStorage() {
+    const key = `vinoledger.daySheetDraft.${this.shop.id || 'KKD41'}.${this.date}`;
+    const raw = localStorage.getItem(key) || sessionStorage.getItem('vinoledger.daySheetDraft');
+    if (!raw) return;
+
+    try {
+      const draft = JSON.parse(raw);
+      if (!draft || !draft.records) return;
+
+      this.records = Array.isArray(draft.records) ? draft.records : this.records;
+      this.expenseRows = Array.isArray(draft.expenses) ? draft.expenses : this.expenseRows;
+      this.additionalProfitRows = Array.isArray(draft.additionalProfitRows) ? draft.additionalProfitRows : this.additionalProfitRows;
+      this.cashDetails = draft.cashDetails || this.cashDetails;
+      this.sheetAmount = Number(draft.submittedAmount || 0) || null;
+    } catch {
+      // ignore malformed draft state
+    }
+  }
+
+  private async syncMrpCatalogFromFirebase() {
+    const activeShopId = String(this.shop?.id || this.auth.currentUser()?.shopId || '').trim();
+    if (!activeShopId) {
+      return;
+    }
+
+    try {
+      const globalDoc = await this.firestore.getDocumentOnce<{ brands?: any[] }>('mrpCatalog', 'global');
+      const overrideDoc = await this.firestore.getDocumentOnce<{ brands?: any[] }>('mrpCatalogOverrides', activeShopId);
+      const globalBrands = Array.isArray(globalDoc?.brands) ? globalDoc.brands : [];
+      const overrideBrands = Array.isArray(overrideDoc?.brands) ? overrideDoc.brands : [];
+      const mergedBrands = this.mergeMrpCatalogs([globalBrands, overrideBrands]);
+
+      if (!mergedBrands.length) {
+        return;
+      }
+
+      const storageKey = `vinoledger.mrp.brands.${activeShopId}`;
+      localStorage.setItem(storageKey, JSON.stringify(mergedBrands));
+    } catch {
+      // Ignore sync failures and keep the local catalog.
+    }
   }
 
   private refreshRecordsFromServer() {
@@ -54,13 +155,37 @@ export class DaySheetComponent implements OnInit {
     });
   }
 
-  updateBalanceForSize(record: SheetRecord, item: SheetSize, value: number) {
-    const enteredBalance = Math.max(0, Number(value) || 0);
-    item.closing = Math.min(item.opening, enteredBalance);
+  updateBalanceForSize(record: SheetRecord, item: SheetSize, value: number | string | null) {
+    if (value === null || value === '' || Number.isNaN(Number(value))) {
+      item.balanceEntered = false;
+      item.closing = 0;
+      item.sales = Math.max(0, Number(item.opening || 0));
+      item.amount = item.sales * Number(item.price || 0);
+      this.persistRecords();
+      return;
+    }
+
+    const enteredBalance = Math.max(0, Number(value));
+    item.closing = Math.min(Number(item.opening || 0), enteredBalance);
     item.balanceEntered = true;
-    item.sales = Math.max(0, item.opening - item.closing);
-    item.amount = item.sales * item.price;
+    item.sales = Math.max(0, Number(item.opening || 0) - item.closing);
+    item.amount = item.sales * Number(item.price || 0);
     this.persistRecords();
+  }
+
+  onBalanceInput(record: SheetRecord, item: SheetSize, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const rawValue = input.value;
+    if (rawValue === '') {
+      this.updateBalanceForSize(record, item, null);
+      return;
+    }
+
+    const openingStock = Math.max(0, Number(item.opening || 0));
+    const enteredValue = Number(rawValue);
+    const balanceStock = Math.min(openingStock, Math.max(0, Number.isFinite(enteredValue) ? enteredValue : 0));
+    input.value = String(balanceStock);
+    this.updateBalanceForSize(record, item, balanceStock);
   }
 
   hasStock(record: SheetRecord) {
@@ -168,10 +293,24 @@ export class DaySheetComponent implements OnInit {
   }
 
   submitSheet() {
+    if (this.missingMrpItems.length) {
+      this.missingMrpDialogOpen = true;
+      return;
+    }
     this.sheetAmount = null;
     this.comparisonMessage = '';
     this.comparisonSuccessful = null;
     this.submitDialogOpen = true;
+  }
+
+  get missingMrpItems() {
+    return this.records.flatMap((record) => record.sizes
+      .filter((item) => item.sales > 0 && item.price <= 0)
+      .map((item) => `${record.brand} - ${item.size}`));
+  }
+
+  closeMissingMrpDialog() {
+    this.missingMrpDialogOpen = false;
   }
 
   hasSheetAmount() {
@@ -197,12 +336,6 @@ export class DaySheetComponent implements OnInit {
     }
 
     const cashTotal = Number(this.cashDetails.cashDeposit || 0) + Number(this.cashDetails.phonePay || 0);
-    if (!this.cashDetails.bankChallanReceipt) {
-      this.comparisonSuccessful = false;
-      this.comparisonMessage = 'Cash Details and Bank Challan Receipt are required before submission.';
-      return;
-    }
-
     if (Math.abs(cashTotal - expectedAmount) > 0.01) {
       this.comparisonSuccessful = false;
       this.comparisonMessage = `Cash Details must match Grand Total (₹ ${expectedAmount.toFixed(2)}). Current total: ₹ ${cashTotal.toFixed(2)}.`;
@@ -211,6 +344,7 @@ export class DaySheetComponent implements OnInit {
 
     const currentUser = this.auth.currentUser();
     const submittedByRole = currentUser?.role === 'Admin' ? 'Admin' : currentUser?.role === 'Owner' ? 'Owner' : 'Cashier';
+    const presentCashValue = await this.calculatePresentCashValue();
     const submission = {
       shop: this.shop,
       shopId: String(this.shop.id || ''),
@@ -230,7 +364,10 @@ export class DaySheetComponent implements OnInit {
       totalExpenses: this.totalExpenses(),
       grandTotal: this.grandTotal(),
       submittedAmount: enteredAmount,
-      submittedAt: new Date().toISOString()
+      presentCashValue,
+      submittedAt: new Date().toISOString(),
+      draft: false,
+      status: 'submitted' as const
     };
     this.isSubmitting = true;
     try {
@@ -258,6 +395,30 @@ export class DaySheetComponent implements OnInit {
     this.comparisonMessage = '';
     this.submitDialogOpen = false;
     this.submissionSuccessDialogOpen = true;
+  }
+
+  private async calculatePresentCashValue(): Promise<number> {
+    try {
+      const [daySheets, invoices] = await Promise.all([
+        firstValueFrom(this.businessData.getDaySheets()),
+        firstValueFrom(this.businessData.getInvoices())
+      ]);
+      const shopId = String(this.shop.id || '').toUpperCase();
+      const previousSheets = (daySheets || [])
+        .filter((sheet: any) => String(sheet.shopId || sheet.shop?.id || '').toUpperCase() === shopId)
+        .filter((sheet: any) => String(sheet.date || '') < this.date)
+        .sort((a: any, b: any) => String(b.date || '').localeCompare(String(a.date || '')));
+      const previousBalance = previousSheets.length && Number.isFinite(Number(previousSheets[0].presentCashValue))
+        ? Number(previousSheets[0].presentCashValue)
+        : previousSheets.reduce((sum: number, sheet: any) => sum + Number(sheet.grandTotal || 0), 0);
+      const invoiceTotal = (invoices || [])
+        .filter((invoice: any) => String(invoice.shopId || invoice.shop?.id || '').toUpperCase() === shopId)
+        .filter((invoice: any) => String(invoice.date || '').slice(0, 10) === this.date)
+        .reduce((sum: number, invoice: any) => sum + Number(invoice.amount || 0), 0);
+      return previousBalance + this.grandTotal() - invoiceTotal;
+    } catch {
+      return this.grandTotal();
+    }
   }
 
   private isFirebaseConfigured() {
@@ -389,22 +550,66 @@ export class DaySheetComponent implements OnInit {
     const previous = this.readPreviousClosing(remoteDaySheets);
     const byProduct = new Map<string, SheetRecord>();
 
+    const previousSubmission = this.readPreviousDayRecords(remoteDaySheets);
+    (previousSubmission?.records || []).forEach((raw: any) => {
+      const key = `${this.normalize(raw.code || '')}|${this.normalize(raw.brand || '')}`;
+      const record: SheetRecord = byProduct.get(key) || {
+        brand: raw.brand || '',
+        code: raw.code || '',
+        productType: raw.productType || '',
+        date: this.date,
+        sizes: []
+      };
+      (raw.sizes || []).forEach((rawSize: any) => {
+        const closing = Math.max(0, Number(rawSize.closing || 0));
+        const sizeName = String(rawSize.size || '');
+        if (!record.sizes.some((size) => size.size === sizeName)) {
+          const price = this.lookupMrp(record.code, record.brand, sizeName) || Number(rawSize.price || 0);
+          record.sizes.push({
+            size: sizeName,
+            opening: closing,
+            sales: closing,
+            closing: 0,
+            price,
+            amount: closing * price,
+            balanceEntered: false
+          });
+        }
+      });
+      byProduct.set(key, record);
+    });
+
+    if (!previous.size) {
+      this.readOpeningStock().forEach((row: any) => {
+        const key = `${this.normalize(row.code || '')}|${this.normalize(row.brand || '')}`;
+        const record: SheetRecord = byProduct.get(key) || { brand: row.brand || '', code: row.code || '', productType: row.productType || '', date: this.date, sizes: [] };
+        record.productType = record.productType || row.productType || '';
+        const sizeName = `${Number(row.size || 0)}ml`;
+        const bottles = Number(row.bottles || 0);
+        const price = Number(row.mrp || 0) || this.lookupMrp(record.code, record.brand, sizeName);
+        record.sizes.push({ size: sizeName, opening: bottles, sales: bottles, closing: 0, price, amount: bottles * price, balanceEntered: false });
+        byProduct.set(key, record);
+      });
+    }
+
     invoices.forEach((invoice: any) => {
       (invoice.rows || []).forEach((row: any) => {
         const key = `${this.normalize(row.code || '')}|${this.normalize(row.brand || '')}`;
-        const record: SheetRecord = byProduct.get(key) || { brand: row.brand || '', code: row.code || '', date: this.date, sizes: [] };
+        const record: SheetRecord = byProduct.get(key) || { brand: row.brand || '', code: row.code || '', productType: row.productType || '', date: this.date, sizes: [] };
+        record.productType = record.productType || row.productType || '';
         const sizeName = `${Number(row.size || 0)}ml`;
         const item = record.sizes.find(size => size.size === sizeName);
         const bottles = Number(row.bottles || 0);
         if (item) item.opening += bottles;
-        else record.sizes.push({ size: sizeName, opening: bottles, sales: bottles, closing: 0, price: this.lookupMrp(record.brand, sizeName), amount: bottles * this.lookupMrp(record.brand, sizeName), balanceEntered: false });
+        else record.sizes.push({ size: sizeName, opening: bottles, sales: bottles, closing: 0, price: this.lookupMrp(record.code, record.brand, sizeName), amount: bottles * this.lookupMrp(record.code, record.brand, sizeName), balanceEntered: false });
         byProduct.set(key, record);
       });
     });
 
+
     saved.forEach((raw: any) => {
       const key = `${this.normalize(raw.code || '')}|${this.normalize(raw.brand || '')}`;
-      const record: SheetRecord = byProduct.get(key) || { brand: raw.brand || '', code: raw.code || '', date: this.date, sizes: [] };
+      const record: SheetRecord = byProduct.get(key) || { brand: raw.brand || '', code: raw.code || '', productType: raw.productType || '', date: this.date, sizes: [] };
       (raw.sizes || []).forEach((rawSize: any) => {
         const item = record.sizes.find(size => size.size === rawSize.size);
         const hasBalance = rawSize.balanceEntered === true;
@@ -413,15 +618,18 @@ export class DaySheetComponent implements OnInit {
           item.sales = sales;
           item.closing = hasBalance ? Number(rawSize.closing || 0) : Math.max(0, item.opening - sales);
           item.balanceEntered = hasBalance;
-          item.price = Number(rawSize.price || item.price || this.lookupMrp(record.brand, rawSize.size));
+          const catalogPrice = this.lookupMrp(record.code, record.brand, rawSize.size);
+          item.price = catalogPrice > 0 ? catalogPrice : Number(rawSize.price || item.price || 0);
         } else {
+          const catalogPrice = this.lookupMrp(record.code, record.brand, rawSize.size);
+          const price = catalogPrice > 0 ? catalogPrice : Number(rawSize.price || 0);
           record.sizes.push({
             size: rawSize.size,
             opening: Number(rawSize.opening || 0),
             sales,
             closing: hasBalance ? Number(rawSize.closing || 0) : Math.max(0, Number(rawSize.opening || 0) - sales),
-            price: Number(rawSize.price || this.lookupMrp(record.brand, rawSize.size)),
-            amount: sales * Number(rawSize.price || this.lookupMrp(record.brand, rawSize.size)),
+            price,
+            amount: sales * price,
             balanceEntered: hasBalance
           });
         }
@@ -472,19 +680,167 @@ export class DaySheetComponent implements OnInit {
     );
   }
 
-  private lookupMrp(brandName: string, sizeName: string) {
+  private readOpeningStock(): any[] {
     try {
-      const brands = JSON.parse(localStorage.getItem('vinoledger.mrp.brands') || '[]');
-      const brand = (Array.isArray(brands) ? brands : []).find((item: any) => this.normalize(item.brand) === this.normalize(brandName));
-      const size = brand?.sizes?.find((item: any) => item.size === sizeName);
-      return Number(size?.mrp || 0);
+      const shopId = String(this.shop.id || '').toUpperCase();
+      const raw = localStorage.getItem(`vinoledger.openingStock.${shopId}`);
+      if (!raw) return [];
+      const record = JSON.parse(raw);
+      if (record?.status === 'draft') return [];
+      return Array.isArray(record?.rows) ? record.rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private async syncOpeningStockFromFirebase() {
+    const shopId = String(this.shop?.id || this.auth.currentUser()?.shopId || '').trim();
+    if (!shopId) return;
+
+    try {
+      const record = await this.businessData.getOpeningStock(shopId);
+      const storageKey = `vinoledger.openingStock.${shopId.toUpperCase()}`;
+      if (!record || record.status === 'draft') {
+        localStorage.removeItem(storageKey);
+        return;
+      }
+      localStorage.setItem(storageKey, JSON.stringify(record));
+    } catch {
+      // Keep any existing browser cache if Firestore cannot be reached.
+    }
+  }
+
+  private lookupMrp(brandCode: string, brandName: string, sizeName: string) {
+    try {
+      const brands = this.getMrpCatalog();
+      const normalizedCode = this.normalize(brandCode);
+      const normalizedBrand = this.normalize(brandName);
+      const requestedSize = this.sizeMl(sizeName);
+      const requestedSizeKey = this.normalize(String(sizeName));
+
+      const brand = (Array.isArray(brands) ? brands : []).find((item: any) => {
+        const codes = [String(item?.code || ''), ...(item?.codes || []).map((code: unknown) => String(code || ''))].filter(Boolean);
+        const itemBrand = this.normalize(String(item?.brand || ''));
+        return (normalizedCode && codes.some((code) => this.normalize(code) === normalizedCode))
+          || itemBrand === normalizedBrand
+          || itemBrand.includes(normalizedBrand)
+          || normalizedBrand.includes(itemBrand);
+      });
+
+      if (!brand) {
+        return 0;
+      }
+
+      const size = (brand?.sizes || []).find((item: any) => {
+        const itemMl = this.sizeMl(String(item?.sizeMl ?? item?.size ?? ''));
+        const itemSizeText = this.normalize(String(item?.size ?? item?.sizeMl ?? ''));
+        const itemSizeCode = this.normalize(String(item?.sizeCode ?? ''));
+        return itemMl === requestedSize
+          || itemSizeText === requestedSizeKey
+          || itemSizeCode === requestedSizeKey;
+      });
+
+      if (!size) {
+        return 0;
+      }
+
+      return Number(size?.mrp ?? 0);
     } catch {
       return 0;
     }
   }
 
+  private getMrpCatalog() {
+    const activeShopId = String(this.shop?.id || this.auth.currentUser()?.shopId || '').trim();
+    const shopKeys = activeShopId ? [
+      `vinoledger.mrp.brands.${activeShopId}`,
+      `vinoledger.mrp.brands.${activeShopId.toUpperCase()}`,
+      `vinoledger.mrp.brands.${activeShopId.toLowerCase()}`
+    ] : [];
+
+    const globalKeys = ['vinoledger.mrp.brands.global', 'vinoledger.mrp.brands'];
+    const overrideKey = activeShopId ? `vinoledger.mrp.overrides.${activeShopId}` : '';
+
+    const mergedCatalogs: any[] = [];
+    const orderedKeys = [...globalKeys, ...shopKeys, ...(overrideKey ? [overrideKey] : [])];
+
+    for (const key of orderedKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) {
+          mergedCatalogs.push(parsed);
+        }
+      } catch {
+        // Ignore malformed catalog entries and continue.
+      }
+    }
+
+    const merged = this.mergeMrpCatalogs(mergedCatalogs);
+    return merged;
+  }
+
+  private mergeMrpCatalogs(catalogs: any[][]): any[] {
+    const byKey = new Map<string, any>();
+
+    catalogs.forEach((catalog) => {
+      catalog.forEach((brand: any) => {
+        const catalogKey = this.normalize(String(brand?.code || brand?.brand || '')) || this.normalize(String(brand?.brand || ''));
+        const existing = byKey.get(catalogKey) || {
+          brand: String(brand?.brand || '').trim(),
+          code: String(brand?.code || '').trim(),
+          codes: [],
+          category: brand?.category || '',
+          sizes: []
+        };
+
+        existing.brand = existing.brand || String(brand?.brand || '').trim();
+        existing.code = existing.code || String(brand?.code || '').trim();
+        existing.category = existing.category || brand?.category || '';
+        existing.codes = Array.from(new Set([...(existing.codes || []), ...(brand?.codes || []), existing.code, String(brand?.code || '').trim()].filter(Boolean)));
+
+        (brand?.sizes || []).forEach((size: any) => {
+          const nextSize = {
+            size: String(size?.size || size?.sizeMl || '').trim(),
+            sizeCode: size?.sizeCode ? String(size.sizeCode).trim() : '',
+            sizeMl: Number(size?.sizeMl ?? 0),
+            mrp: Number(size?.mrp ?? 0)
+          };
+          const hasNumericSize = Number.isFinite(nextSize.sizeMl) && nextSize.sizeMl > 0;
+          const index = existing.sizes.findIndex((item: any) => {
+            const existingSizeMl = Number(item?.sizeMl ?? 0);
+            const existingHasNumericSize = Number.isFinite(existingSizeMl) && existingSizeMl > 0;
+            if (hasNumericSize || existingHasNumericSize) {
+              return hasNumericSize && existingHasNumericSize && existingSizeMl === nextSize.sizeMl;
+            }
+            return this.normalize(String(item?.sizeCode || item?.size || '')) === this.normalize(String(nextSize.sizeCode || nextSize.size));
+          });
+
+          if (index >= 0) {
+            existing.sizes[index] = { ...existing.sizes[index], ...nextSize };
+          } else {
+            existing.sizes.push(nextSize);
+          }
+        });
+
+        byKey.set(catalogKey, existing);
+      });
+    });
+
+    return Array.from(byKey.values()).filter((brand: any) => brand.brand && brand.code && Array.isArray(brand.sizes) && brand.sizes.length);
+  }
+
   private readPreviousClosing(remoteDaySheets: DaySheetRecord[]) {
     const closing = new Map<string, number>();
+    const prior = this.readPreviousDayRecords(remoteDaySheets);
+    (prior?.records || []).forEach((record: any) => (record.sizes || []).forEach((size: any) => {
+      closing.set(`${this.normalize(record.code)}|${this.normalize(record.brand)}|${size.size}`, Number(size.closing || 0));
+    }));
+    return closing;
+  }
+
+  private readPreviousDayRecords(remoteDaySheets: DaySheetRecord[]) {
     let localHistory: any[] = [];
     try {
       const parsed = JSON.parse(localStorage.getItem('vinoledger.daySheetSubmissions') || '[]');
@@ -499,13 +855,9 @@ export class DaySheetComponent implements OnInit {
       byId.set(key, submission);
     });
 
-    const prior = [...byId.values()]
+    return [...byId.values()]
       .filter((submission: any) => this.normalize(String(submission.shopId || '')) === this.normalize(String(this.shop.id || '')) && String(submission.date || '') < this.date)
       .sort((a: any, b: any) => String(b.date).localeCompare(String(a.date)))[0];
-    (prior?.records || []).forEach((record: any) => (record.sizes || []).forEach((size: any) => {
-      closing.set(`${this.normalize(record.code)}|${this.normalize(record.brand)}|${size.size}`, Number(size.closing || 0));
-    }));
-    return closing;
   }
 
   private normalize(value: string) {

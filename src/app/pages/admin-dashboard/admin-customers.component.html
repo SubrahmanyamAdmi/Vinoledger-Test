@@ -1,10 +1,13 @@
-<div class="customers-container">
+<div class="customers-container vl-page-content">
   <header class="header">
     <div>
       <h1>Customers & Users</h1>
       <p class="subtitle">Manage owners and cashiers for all shops</p>
     </div>
-    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to Dashboard</span>
+    </button>
   </header>
 
   <div class="list-view">
@@ -49,7 +52,9 @@
             <td>{{ customer.shopId }}</td>
             <td class="email-cell">{{ customer.email }}</td>
             <td class="action-cell">
-              <button class="delete-btn" (click)="deleteCustomer(customer.id)">🗑️</button>
+              <button class="delete-btn" type="button" (click)="deleteCustomer(customer.id)" [attr.aria-label]="'Delete ' + customer.name" title="Delete">
+                <app-icon name="trash"></app-icon>
+              </button>
             </td>
           </tr>
         </tbody>

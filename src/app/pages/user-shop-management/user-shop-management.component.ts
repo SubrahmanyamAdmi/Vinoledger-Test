@@ -1,14 +1,19 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { TopbarComponent } from '../../shared/topbar/topbar.component';
-import { SidenavComponent } from '../../shared/sidenav/sidenav.component';
+import { Router } from '@angular/router';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 @Component({
   selector: 'app-user-shop-management',
   standalone: true,
-  imports: [CommonModule, MatToolbarModule, TopbarComponent, SidenavComponent],
+  imports: [CommonModule, IconComponent],
   templateUrl: './user-shop-management.component.html',
-  styleUrls: ['./user-shop-management.component.scss']
+  styleUrls: ['./user-shop-management.component.scss', '../admin-dashboard/admin-page-theme.scss']
 })
-export class UserShopManagementComponent {}
+export class UserShopManagementComponent {
+  constructor(private router: Router) {}
+
+  goBack() {
+    this.router.navigate(['/admin']);
+  }
+}

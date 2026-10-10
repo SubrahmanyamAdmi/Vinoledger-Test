@@ -1,7 +1,22 @@
-<app-topbar></app-topbar>
-<app-sidenav>
-  <div class="page-content">
-    <h2>Users & Shops</h2>
-    <p>Admin functions to add shops, assign users and manage roles (placeholder).</p>
-  </div>
-</app-sidenav>
+<main class="management-page vl-page-content">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">PLATFORM ADMINISTRATION</span>
+      <h1>Users & Shops</h1>
+      <p>Manage shop accounts, user access, and role assignments.</p>
+    </div>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to Dashboard</span>
+    </button>
+  </header>
+
+  <section class="management-panel">
+    <span class="management-icon"><app-icon name="store"></app-icon></span>
+    <div>
+      <span class="eyebrow">WORKSPACE STATUS</span>
+      <h2>Shop management workspace</h2>
+      <p>Shop and role administration tools are not available in this workspace yet.</p>
+    </div>
+  </section>
+</main>

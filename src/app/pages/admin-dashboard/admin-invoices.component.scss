@@ -273,6 +273,12 @@
   color: #666;
 }
 
+.empty-invoices {
+  padding: 28px 16px;
+  color: var(--vl-text-secondary);
+  text-align: center;
+}
+
 .date-ref {
   .date {
     font-weight: 500;

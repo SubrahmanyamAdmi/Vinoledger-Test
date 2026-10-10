@@ -1,55 +1,46 @@
-<div class="admin-container">
-  <!-- Header with Welcome and Logout -->
-  <header class="header">
-    <div class="welcome-section">
-      <h1>Welcome Back, <br><span class="admin-name">Admin Dashboard</span></h1>
-    </div>
-    <button class="logout-btn" (click)="logout()">→ Logout</button>
-  </header>
+<div class="admin-container vl-page-content">
+  <section class="admin-page-title">
+    <span class="console-label">Administration</span>
+    <h1>Welcome back, <span class="admin-name">{{ userName }}</span></h1>
+  </section>
 
-  <!-- Revenue Card -->
   <section class="revenue-card">
-    <h2>Total Revenue Today</h2>
-    <div class="revenue-amount">{{ totalRevenueToday }}</div>
-    <div class="revenue-icon">📈</div>
+    <div class="revenue-copy">
+      <span class="eyebrow">TODAY AT A GLANCE</span>
+      <h2>Total Revenue</h2>
+      <div class="revenue-amount">{{ totalRevenueToday }}</div>
+    </div>
+    <div class="revenue-icon"><app-icon name="chart"></app-icon></div>
   </section>
 
-  <!-- Main Menu Grid -->
+  <div class="section-heading">
+    <div><span class="eyebrow">CONTROL ROOM</span><h2>Administration</h2></div>
+    <span class="section-note">{{ menuItems.length }} tools</span>
+  </div>
+
   <section class="menu-grid">
-    <button 
-      *ngFor="let item of menuItems" 
-      class="menu-item" 
-      (click)="navigateTo(item.route)"
-      [style.border-top]="'4px solid ' + item.color">
-      <div class="item-icon">{{ item.icon }}</div>
+    <button
+      *ngFor="let item of menuItems"
+      type="button"
+      class="menu-item"
+      (click)="navigateTo(item.route)">
+      <span class="item-icon"><app-icon [name]="item.icon"></app-icon></span>
       <div class="item-label">{{ item.label }}</div>
+      <app-icon class="item-chevron" name="chevron-right"></app-icon>
     </button>
   </section>
 
-  <!-- Quick Reports Section -->
   <section class="quick-reports">
-    <h3>Quick Reports</h3>
+    <div class="section-heading"><div><span class="eyebrow">OPERATIONS</span><h2>Quick reports</h2></div></div>
     <div class="reports-grid">
-      <button *ngFor="let report of quickReports" class="report-btn">
-        <div class="report-icon">{{ report.icon }}</div>
-        <div class="report-label">{{ report.label }}</div>
-      </button>
+      <article *ngFor="let report of quickReports" class="report-item">
+        <span class="report-icon"><app-icon [name]="report.icon"></app-icon></span>
+        <span class="report-label">{{ report.label }}</span>
+      </article>
     </div>
   </section>
 
-  <!-- Footer Navigation -->
-  <footer class="footer-nav">
-    <button 
-      *ngFor="let nav of navigationItems" 
-      class="nav-item"
-      (click)="navigateTo(nav.route)">
-      <span class="nav-icon">{{ nav.icon }}</span>
-      <span class="nav-label">{{ nav.label }}</span>
-    </button>
-  </footer>
-
-  <!-- Bottom Branding -->
   <div class="app-footer">
-    <p>VinoLedger Admin v2.4</p>
+    <p>VinoLedger Administration</p>
   </div>
 </div>

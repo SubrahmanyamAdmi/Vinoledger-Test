@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, of, timeout } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { FirestoreService } from './firestore.service';
 import { LocalDatabaseService } from './local-database.service';
 import { environment } from '../../environments/environment';
@@ -50,6 +50,8 @@ export interface DaySheetRecord {
   id: string;
   shopId: string;
   date: string;
+  status?: 'draft' | 'submitted';
+  draft?: boolean;
   records: unknown[];
   expenses: unknown[];
   additionalProfit: number;
@@ -57,6 +59,7 @@ export interface DaySheetRecord {
   totalExpenses: number;
   grandTotal: number;
   submittedAmount: number;
+  presentCashValue?: number;
   cashier?: string;
   submittedAt?: string;
 }
@@ -81,6 +84,17 @@ export interface InventoryRecord {
   updatedAt?: string;
 }
 
+export interface OpeningStockRecord {
+  id: string;
+  shopId: string;
+  date: string;
+  rows: unknown[];
+  status?: 'draft' | 'submitted';
+  submittedByName?: string;
+  submittedAt?: string | null;
+  createdAt?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BusinessDataService {
   constructor(private firestore: FirestoreService, private localDatabase: LocalDatabaseService) {}
@@ -93,10 +107,8 @@ export class BusinessDataService {
     }
 
     return this.firestore.getCollection<ShopRecord>('shops').pipe(
-      catchError(() => {
-        console.warn('Firebase shops read failed; returning empty list.');
-        return of([]);
-      })
+      timeout({ first: 8000, with: () => of([]) }),
+      catchError(() => of([]))
     );
   }
 
@@ -106,10 +118,8 @@ export class BusinessDataService {
     }
 
     return this.firestore.getCollection<any>('users').pipe(
-      catchError(() => {
-        console.warn('Firebase users read failed; returning empty list.');
-        return of([]);
-      })
+      timeout({ first: 8000, with: () => of([]) }),
+      catchError(() => of([]))
     );
   }
 
@@ -128,20 +138,76 @@ export class BusinessDataService {
   getDaySheets(): Observable<DaySheetRecord[]> {
     if (this.useLocal()) {
       return this.localDatabase.getCollection<DaySheetRecord>('daySheets').pipe(
+        map((sheets) => sheets.filter((sheet) => sheet.status !== 'draft' && sheet.draft !== true)),
         catchError(() => of(this.readLocalDaySheets()))
       );
     }
 
     return this.firestore.getCollection<DaySheetRecord>('daySheets').pipe(
-      catchError(() => {
-        console.warn('Firebase daySheets read failed; returning empty list.');
-        return of([]);
-      })
+      timeout({ first: 8000, with: () => of([]) }),
+      map((sheets) => sheets.filter((sheet) => sheet.status !== 'draft' && sheet.draft !== true)),
+      catchError(() => of([]))
     );
   }
 
   getInventory(): Observable<InventoryRecord[]> {
     return this.useLocal() ? this.localDatabase.getCollection<InventoryRecord>('inventory') : this.firestore.getCollection<InventoryRecord>('inventory');
+  }
+
+  getOpeningStock(shopId: string): Promise<OpeningStockRecord | null> {
+    const id = this.openingStockDocumentId(shopId);
+    if (this.useLocal()) {
+      return Promise.resolve(this.readLocalOpeningStock(shopId));
+    }
+
+    return this.firestore.getDocumentOnce<OpeningStockRecord>('openingStock', id)
+      .then((record) => record || this.readLocalOpeningStock(shopId))
+      .catch(() => this.readLocalOpeningStock(shopId));
+  }
+
+  async saveOpeningStock(data: Partial<OpeningStockRecord>, status: 'draft' | 'submitted' = 'submitted'): Promise<string> {
+    const id = this.openingStockDocumentId(data.shopId);
+    const recordShopId = String(data.shopId || '');
+    const existing = await this.getOpeningStock(recordShopId);
+    if (existing && existing.status !== 'draft') {
+      throw new Error('Opening stock has already been submitted for this shop.');
+    }
+
+    const now = new Date().toISOString();
+    const record = {
+      ...existing,
+      ...data,
+      id,
+      shopId: recordShopId,
+      status,
+      createdAt: existing?.createdAt || data.createdAt || now,
+      submittedAt: status === 'submitted' ? data.submittedAt || now : null,
+    } as OpeningStockRecord;
+    const shopId = String(data.shopId || '');
+
+    if (this.useLocal()) {
+      await this.localDatabase.createDocument<OpeningStockRecord>('openingStock', record);
+    } else {
+      await this.firestore.setDocument<OpeningStockRecord>('openingStock', id, record);
+    }
+
+    localStorage.setItem(`vinoledger.openingStock.${shopId.toUpperCase()}`, JSON.stringify(record));
+    return id;
+  }
+
+  private openingStockDocumentId(shopId?: string): string {
+    const shopKey = String(shopId || 'unknown').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return `opening-stock-${shopKey || 'unknown'}`;
+  }
+
+  private readLocalOpeningStock(shopId: string): OpeningStockRecord | null {
+    const raw = localStorage.getItem(`vinoledger.openingStock.${String(shopId || '').toUpperCase()}`);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as OpeningStockRecord;
+    } catch {
+      return null;
+    }
   }
 
   saveShop(data: Partial<ShopRecord>): Promise<string> {
@@ -166,8 +232,30 @@ export class BusinessDataService {
   }
 
   saveDaySheet(data: Partial<DaySheetRecord>): Promise<string> {
-    return this.saveWithLocalFallback('daySheets', data, () =>
-      this.firestore.createDocument<DaySheetRecord>('daySheets', data as DaySheetRecord));
+    return this.saveDaySheetState({ ...data, status: 'submitted', draft: false });
+  }
+
+  saveDaySheetDraft(data: Partial<DaySheetRecord>): Promise<string> {
+    return this.saveDaySheetState({ ...data, status: 'draft', draft: true });
+  }
+
+  private saveDaySheetState(data: Partial<DaySheetRecord>): Promise<string> {
+    const id = this.daySheetDocumentId(data.shopId, data.date);
+    const record = { ...data, id } as DaySheetRecord;
+
+    if (this.useLocal()) {
+      return this.localDatabase.createDocument<DaySheetRecord>('daySheets', record);
+    }
+
+    return this.firestore.setDocument<DaySheetRecord>('daySheets', id, record)
+      .then(() => id)
+      .catch(() => this.localDatabase.createDocument<DaySheetRecord>('daySheets', record));
+  }
+
+  private daySheetDocumentId(shopId?: string, date?: string): string {
+    const shopKey = String(shopId || 'unknown').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const dateKey = String(date || 'unknown').trim().replace(/[^0-9-]+/g, '');
+    return `day-sheet-${shopKey || 'unknown'}-${dateKey || 'unknown'}`;
   }
 
   deleteDaySheet(id: string): Promise<void> {
@@ -197,8 +285,7 @@ export class BusinessDataService {
 
     try {
       return await firestoreSave();
-    } catch (error) {
-      console.warn(`Firebase save failed for ${storeName}, falling back to local storage.`, error);
+    } catch {
       return this.localDatabase.createDocument<T>(storeName, data as T);
     }
   }

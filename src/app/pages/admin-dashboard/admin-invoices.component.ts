@@ -2,30 +2,44 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../services/auth.service';
+import { BusinessDataService, InvoiceRecord } from '../../services/business-data.service';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
+import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
+
+interface InvoiceCustomer {
+  id: string;
+  name: string;
+  shopId: string;
+  openingDate: string;
+}
 
 @Component({
   selector: 'app-admin-invoices',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent, AppDateInputComponent],
   templateUrl: './admin-invoices.component.html',
-  styleUrls: ['./admin-invoices.component.scss']
+  styleUrls: ['./admin-invoices.component.scss', './admin-page-theme.scss']
 })
 export class AdminInvoicesComponent implements OnInit {
-  customers = [
-    { id: '1', name: 'Rajesh Kumar', shopId: 'MH2041' },
-    { id: '2', name: 'Anita Sharma', shopId: 'PU2042' },
-    { id: '3', name: 'Vikram Singh', shopId: 'DL2043' },
-    { id: '4', name: 'Suresh Raina', shopId: 'KA2044' },
-    { id: '5', name: 'Meera Iyer', shopId: 'TN2045' }
-  ];
+  customers: InvoiceCustomer[] = [];
 
   selectedCustomerId = '';
   selectedCustomer: any = null;
   showAddForm = false;
 
-  invoices: any[] = [];
+  invoices: InvoiceRecord[] = [];
+  private allInvoices: InvoiceRecord[] = [];
   totalAmount = 0;
   private readonly invoiceStorageKey = 'vinoledger.invoices';
+
+  get customerOptions(): AppSelectOption[] {
+    return this.customers.map((customer) => ({
+      value: customer.id,
+      label: `${customer.name} - ${customer.shopId}`,
+    }));
+  }
 
   // Add invoice form
   newInvoice = {
@@ -35,91 +49,80 @@ export class AdminInvoicesComponent implements OnInit {
     description: ''
   };
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, public auth: AuthService, private businessData: BusinessDataService) {}
 
   ngOnInit() {
-    this.initializeSampleInvoices();
+    this.loadCustomers();
+    this.loadInvoices();
   }
 
-  initializeSampleInvoices() {
-    const savedInvoices = JSON.parse(localStorage.getItem(this.invoiceStorageKey) || 'null');
-    if (Array.isArray(savedInvoices)) {
-      this.invoices = savedInvoices;
-      this.updateTotalAmount();
-      return;
+  private loadCustomers() {
+    this.businessData.getShops().subscribe({
+      next: (shops) => {
+        const registeredShops = this.auth.getRegisteredShops();
+        const byShopId = new Map<string, InvoiceCustomer>();
+        [...registeredShops, ...shops].forEach((shop: any) => {
+          const shopId = String(shop.shopId || shop.id || '').trim();
+          if (!shopId) return;
+          byShopId.set(shopId.toUpperCase(), {
+            id: shopId,
+            shopId,
+            name: String(shop.owner || shop.ownerName || shop.name || shopId),
+            openingDate: String(shop.openingDate || shop.createdAt || '').slice(0, 10),
+          });
+        });
+        this.customers = Array.from(byShopId.values());
+      },
+      error: () => {
+        this.customers = this.auth.getRegisteredShops()
+          .map((shop: any) => {
+            const shopId = String(shop.shopId || shop.id || '').trim();
+            return shopId ? {
+              id: shopId,
+              shopId,
+              name: String(shop.owner || shop.ownerName || shop.name || shopId),
+              openingDate: String(shop.openingDate || shop.createdAt || '').slice(0, 10),
+            } : null;
+          })
+          .filter((shop): shop is InvoiceCustomer => shop !== null);
+      },
+    });
+  }
+
+  private loadInvoices() {
+    this.businessData.getInvoices().subscribe({
+      next: (invoices) => {
+        this.allInvoices = invoices.length ? invoices : this.readLegacyInvoices();
+        this.applySelectedCustomerFilter();
+      },
+      error: () => {
+        this.allInvoices = this.readLegacyInvoices();
+        this.applySelectedCustomerFilter();
+      },
+    });
+  }
+
+  private readLegacyInvoices(): InvoiceRecord[] {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this.invoiceStorageKey) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
     }
-
-    this.invoices = [
-      { 
-        id: 'INV-001', 
-        date: 'Oct 24, 2023', 
-        referenceNo: 'INV-#001', 
-        amount: 1240.00,
-        customer: 'Marson House (MH2091)',
-        shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-002', 
-        date: 'Oct 22, 2023', 
-        referenceNo: 'INV-#002', 
-        amount: 850.50,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-003', 
-        date: 'Oct 15, 2023', 
-        referenceNo: 'INV-#003', 
-        amount: 2100.00,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-004', 
-        date: 'Oct 10, 2023', 
-        referenceNo: 'INV-#004', 
-        amount: 430.00,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-005', 
-        date: 'Sep 28, 2023', 
-        referenceNo: 'INV-#005', 
-        amount: 1120.75,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-006', 
-        date: 'Sep 20, 2023', 
-        referenceNo: 'INV-#006', 
-        amount: 980.00,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-007', 
-        date: 'Sep 12, 2023', 
-        referenceNo: 'INV-#007', 
-        amount: 150.25,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      },
-      { 
-        id: 'INV-008', 
-        date: 'Sep 05, 2023', 
-        referenceNo: 'INV-#008', 
-        amount: 3400.00,
-        customer: 'Marson House (MH2091)', shopId: 'MH2091'
-      }
-    ];
-
-    localStorage.setItem(this.invoiceStorageKey, JSON.stringify(this.invoices));
-    this.updateTotalAmount();
   }
 
   selectCustomer() {
-    if (this.selectedCustomerId) {
-      this.selectedCustomer = this.customers.find(c => c.id === this.selectedCustomerId);
-      this.showAddForm = false;
-    } else {
-      this.selectedCustomer = null;
-    }
+    this.selectedCustomer = this.customers.find((customer) => customer.id === this.selectedCustomerId) || null;
+    this.showAddForm = false;
+    this.applySelectedCustomerFilter();
+  }
+
+  private applySelectedCustomerFilter() {
+    const selectedShopId = String(this.selectedCustomer?.shopId || '').trim().toUpperCase();
+    this.invoices = selectedShopId
+      ? this.allInvoices.filter((invoice) => String(invoice.shopId || '').trim().toUpperCase() === selectedShopId)
+      : [];
+    this.updateTotalAmount();
   }
 
   viewInvoice(invoiceId: string) {
@@ -137,28 +140,39 @@ export class AdminInvoicesComponent implements OnInit {
     }
   }
 
-  addInvoice() {
+  async addInvoice() {
     if (!this.newInvoice.referenceNo || this.newInvoice.amount <= 0) {
       alert('Please fill all required fields');
       return;
     }
 
+    if (!this.selectedCustomer) {
+      alert('Select a shop before adding an invoice');
+      return;
+    }
+
     const invoice = {
-      id: 'INV-' + String(this.invoices.length + 1).padStart(3, '0'),
+      id: 'INV-' + Date.now(),
       date: this.newInvoice.date,
       referenceNo: this.newInvoice.referenceNo,
+      invoiceNumber: this.newInvoice.referenceNo,
       amount: this.newInvoice.amount,
       customer: this.selectedCustomer.name + ' (' + this.selectedCustomer.shopId + ')',
       shopId: this.selectedCustomer.shopId,
       description: this.newInvoice.description
     };
 
-    this.invoices.unshift(invoice);
-    localStorage.setItem(this.invoiceStorageKey, JSON.stringify(this.invoices));
-    this.updateTotalAmount();
-    this.resetForm();
-    this.showAddForm = false;
-    alert('Invoice added successfully');
+    try {
+      await this.businessData.saveInvoice(invoice);
+      this.allInvoices = [invoice, ...this.allInvoices];
+      localStorage.setItem(this.invoiceStorageKey, JSON.stringify([invoice, ...this.readLegacyInvoices()]));
+      this.applySelectedCustomerFilter();
+      this.resetForm();
+      this.showAddForm = false;
+      alert('Invoice added successfully');
+    } catch {
+      alert('Unable to save invoice. Please try again.');
+    }
   }
 
   resetForm() {
@@ -171,7 +185,7 @@ export class AdminInvoicesComponent implements OnInit {
   }
 
   updateTotalAmount() {
-    this.totalAmount = this.invoices.reduce((sum, inv) => sum + inv.amount, 0);
+    this.totalAmount = this.invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
   }
 
   goBack() {

@@ -1,0 +1,63 @@
+<div class="stock-shell">
+  <main class="content-wrap vl-page-content">
+    <section class="owner-page-intro">
+      <p class="eyebrow">Inventory overview</p>
+      <h1>Stock</h1>
+      <p>Review the latest recorded stock levels and cost, then export the current inventory report.</p>
+    </section>
+
+    <section class="summary-bar">
+      <div>
+        <span class="label">Current date</span>
+        <strong>{{ stockDate || 'No stock loaded' }}</strong>
+      </div>
+      <div>
+        <span class="label">Total cost</span>
+        <strong>₹{{ totalStockCost | number:'1.2-2' }}</strong>
+      </div>
+    </section>
+
+    <section class="table-panel">
+      <div class="panel-header">
+        <h3>Present Stock Details</h3>
+        <button type="button" class="download-btn" (click)="downloadPdf()" [disabled]="!stockRows.length">Download PDF</button>
+      </div>
+
+      <div class="table-scroll" *ngIf="stockRows.length; else noStock">
+        <table>
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Code</th>
+              <th>Brand Name</th>
+              <th>MR Size</th>
+              <th>MRP</th>
+              <th>Stock</th>
+              <th>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of stockRows">
+              <td>{{ row.serial }}</td>
+              <td>{{ row.code }}</td>
+              <td>{{ row.brand }}</td>
+              <td>{{ row.size }}</td>
+              <td>₹{{ row.mrp | number:'1.2-2' }}</td>
+              <td>{{ row.stock }}</td>
+              <td>₹{{ row.cost | number:'1.2-2' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ng-template #noStock>
+        <p class="empty-state">Present sheet opening stock is not available yet.</p>
+      </ng-template>
+    </section>
+
+    <section class="footer-total" *ngIf="stockRows.length">
+      <span>Total Cost of Stock</span>
+      <strong>₹{{ totalStockCost | number:'1.2-2' }}</strong>
+    </section>
+  </main>
+</div>

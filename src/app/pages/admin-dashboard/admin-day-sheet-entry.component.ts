@@ -3,23 +3,31 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { BusinessDataService } from '../../services/business-data.service';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
+import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 
 @Component({
   selector: 'app-admin-day-sheet-entry',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent, AppDateInputComponent],
   templateUrl: './admin-day-sheet-entry.component.html',
-  styleUrls: ['./admin-day-sheet-entry.component.scss']
+  styleUrls: ['./admin-day-sheet-entry.component.scss', './admin-page-theme.scss']
 })
 export class AdminDaySheetEntryComponent {
-  shops: Array<{ id: string; name: string; owner: string }> = [];
+  shops: Array<{ id: string; name: string; owner: string; openingDate?: string }> = [];
   submittedDates: string[] = [];
   submittedDateDetails: Record<string, string> = {};
   dateError = '';
+  isLoadingDates = true;
 
   selectedShopId = '';
   today = this.toIsoDate(new Date());
   date = this.today;
+
+  get shopOptions(): AppSelectOption[] {
+    return this.shops.map((shop) => ({ value: shop.id, label: `${shop.owner} - ${shop.id}` }));
+  }
 
   constructor(private router: Router, private businessData: BusinessDataService) {
     const saved = JSON.parse(sessionStorage.getItem('vinoledger.shop') || 'null');
@@ -41,7 +49,8 @@ export class AdminDaySheetEntryComponent {
           .map((shop) => ({
             id: String(shop.shopId || shop.id || ''),
             name: shop.name || shop.shopId || shop.id || '',
-            owner: shop.ownerName || shop.owner || 'N/A'
+            owner: shop.ownerName || shop.owner || 'N/A',
+            openingDate: String(shop.openingDate || shop.createdAt || '').slice(0, 10)
           }))
           .filter((shop) => shop.id);
 
@@ -55,14 +64,19 @@ export class AdminDaySheetEntryComponent {
         this.shops = [];
         this.selectedShopId = '';
         this.submittedDates = [];
+        this.submittedDateDetails = {};
         this.dateError = '';
+        this.isLoadingDates = false;
       }
     });
   }
 
   onShopChange() {
+    this.date = '';
+    this.submittedDates = [];
+    this.submittedDateDetails = {};
+    this.dateError = '';
     this.refreshSubmittedDates();
-    this.dateChanged();
   }
 
   dateChanged() {
@@ -92,17 +106,21 @@ export class AdminDaySheetEntryComponent {
       this.submittedDates = [];
       this.submittedDateDetails = {};
       this.dateError = '';
+      this.isLoadingDates = false;
       return;
     }
 
+    this.isLoadingDates = true;
     this.businessData.getDaySheets().subscribe({
       next: (sheets: any[]) => {
         const knownDetails: Record<string, string> = {};
+        const knownDates = new Set<string>();
         (Array.isArray(sheets) ? sheets : [])
           .filter((sheet: any) => String(sheet.shopId || sheet.shop?.id || '').toUpperCase() === shopId.toUpperCase())
           .forEach((sheet: any) => {
             const date = String(sheet.date || '').slice(0, 10);
             if (!date) return;
+            knownDates.add(date);
             const submittedBy = String(sheet.cashier || sheet.submittedBy || sheet.cashierName || '').trim();
             if (submittedBy) {
               knownDetails[date] = submittedBy;
@@ -111,13 +129,17 @@ export class AdminDaySheetEntryComponent {
 
         const fallbackDetails = this.loadSubmittedDetailsFromStorage();
         this.submittedDateDetails = { ...fallbackDetails, ...knownDetails };
-        this.submittedDates = [...new Set([...Object.keys(this.submittedDateDetails)])];
+        this.submittedDates = [...new Set([...knownDates, ...Object.keys(fallbackDetails)])];
+        this.date = this.getNextPendingDate();
         this.dateChanged();
+        this.isLoadingDates = false;
       },
       error: () => {
         this.submittedDateDetails = this.loadSubmittedDetailsFromStorage();
         this.submittedDates = [...new Set(Object.keys(this.submittedDateDetails))];
+        this.date = this.getNextPendingDate();
         this.dateChanged();
+        this.isLoadingDates = false;
       }
     });
   }
@@ -153,11 +175,29 @@ export class AdminDaySheetEntryComponent {
     return details;
   }
 
+  private getNextPendingDate(): string {
+    const openingDate = this.selectedShop.openingDate;
+    if (!openingDate || !/^\d{4}-\d{2}-\d{2}$/.test(openingDate) || openingDate > this.today) {
+      return this.today;
+    }
+
+    const start = new Date(`${openingDate}T00:00:00`);
+    const end = new Date(`${this.today}T00:00:00`);
+    for (const current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+      const date = this.toIsoDate(current);
+      if (!this.submittedDates.includes(date)) {
+        return date;
+      }
+    }
+    return this.today;
+  }
+
   get selectedShop() {
     return this.shops.find(shop => shop.id === this.selectedShopId) || this.shops[0] || {
       id: this.selectedShopId,
       name: '',
-      owner: 'N/A'
+      owner: 'N/A',
+      openingDate: ''
     };
   }
 

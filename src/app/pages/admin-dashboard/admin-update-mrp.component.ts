@@ -1,29 +1,32 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { AuthService } from '../../services/auth.service';
 import { FirestoreService } from '../../services/firestore.service';
+import { BusinessDataService } from '../../services/business-data.service';
 import { environment } from '../../../environments/environment';
 import * as XLSX from 'xlsx';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 
 interface MRPBrand {
   brand: string;
   code: string;
   codes?: string[];
   category?: string;
-  sizes: { size: string; sizeCode?: string; sizeMl?: number; mrp: number }[];
+  sizes: { size: string; sizeCode?: string; sizeMl?: number; mrp: number; bottlesPerCase?: number }[];
 }
 
 @Component({
   selector: 'app-admin-update-mrp',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent],
   templateUrl: './admin-update-mrp.component.html',
-  styleUrls: ['./admin-update-mrp.component.scss']
+  styleUrls: ['./admin-update-mrp.component.scss', './admin-page-theme.scss']
 })
-export class AdminUpdateMrpComponent implements OnDestroy {
+export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
   search = '';
   isEditing = false;
   isSearching = false;
@@ -41,62 +44,66 @@ export class AdminUpdateMrpComponent implements OnDestroy {
   private searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private rowEditOriginalMrp = 0;
 
-  brands: MRPBrand[] = [
-    {
-      brand: 'Royal Stag',
-      code: 'RS-104',
-      sizes: [
-        { size: '90ml', mrp: 180 },
-        { size: '180ml', mrp: 350 },
-        { size: '375ml', mrp: 690 },
-        { size: '750ml', mrp: 1320 },
-        { size: '1000ml', mrp: 1760 }
-      ]
-    },
-    {
-      brand: 'Black Dog',
-      code: 'BD-208',
-      sizes: [
-        { size: '90ml', mrp: 220 },
-        { size: '180ml', mrp: 420 },
-        { size: '375ml', mrp: 820 },
-        { size: '750ml', mrp: 1490 },
-        { size: '1000ml', mrp: 1980 }
-      ]
-    },
-    {
-      brand: 'Jameson',
-      code: 'JM-308',
-      sizes: [
-        { size: '90ml', mrp: 260 },
-        { size: '180ml', mrp: 520 },
-        { size: '375ml', mrp: 980 },
-        { size: '750ml', mrp: 1850 },
-        { size: '1000ml', mrp: 2450 }
-      ]
-    },
-    {
-      brand: 'Hennessy',
-      code: 'HN-440',
-      sizes: [
-        { size: '90ml', mrp: 310 },
-        { size: '180ml', mrp: 620 },
-        { size: '375ml', mrp: 1180 },
-        { size: '750ml', mrp: 2280 },
-        { size: '1000ml', mrp: 2940 }
-      ]
-    }
-  ];
+  shops: Array<{ id: string; name: string; owner: string }> = [];
+  selectedShopId = '';
+  loadingShops = false;
+  private shopChangedKeys = new Set<string>();
+
+  get shopOptions(): AppSelectOption[] {
+    return [
+      { value: '', label: 'Global catalog' },
+      ...this.shops.map((shop) => ({ value: shop.id, label: `${shop.id} - ${shop.name}` })),
+    ];
+  }
+
+  get isAdmin(): boolean {
+    return this.auth.userRole() === 'Admin';
+  }
+
+  get isOwner(): boolean {
+    return this.auth.userRole() === 'Owner';
+  }
+
+  get canEditMrp(): boolean {
+    return this.isAdmin || this.isOwner;
+  }
+
+  brands: MRPBrand[] = [];
 
   constructor(
     public auth: AuthService,
     private router: Router,
-    private firestore: FirestoreService
+    private firestore: FirestoreService,
+    private businessData: BusinessDataService
   ) {
+    this.selectedShopId = this.isAdmin ? '' : (this.auth.currentUser()?.shopId || '');
+    if (this.isAdmin) {
+      this.loadStoredBrands();
+      return;
+    }
+
+    this.loadStoredBrands();
+  }
+
+  ngOnInit() {
+    if (!this.isAdmin) return;
+    this.loadingShops = true;
+    this.businessData.getShops().subscribe((shops) => {
+      this.shops = shops.map((shop) => ({ id: String(shop.id || '').trim(), name: shop.name || shop.id, owner: shop.owner || '' }))
+        .filter((shop) => shop.id);
+      this.loadingShops = false;
+    });
+  }
+
+  onShopChanged() {
     this.loadStoredBrands();
   }
 
   importWorkbook(event: Event) {
+    if (this.selectedShopId) {
+      this.importError = 'Select Global catalog before importing the Excel MRP file.';
+      return;
+    }
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
@@ -107,8 +114,9 @@ export class AdminUpdateMrpComponent implements OnDestroy {
       try {
         const workbook = XLSX.read(reader.result, { type: 'array' });
         const importedBrands = workbook.SheetNames.reduce((brands, sheetName) => {
-          const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: '' });
-          return this.mergeBrands([...brands, ...this.parseWorkbookMatrix(matrix)]);
+          const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false });
+          const parsed = this.parseWorkbookMatrix(matrix);
+          return this.mergeBrands([...brands, ...parsed]);
         }, [] as MRPBrand[]);
         if (!importedBrands.length) {
           throw new Error('No valid brand rows found');
@@ -127,11 +135,11 @@ export class AdminUpdateMrpComponent implements OnDestroy {
   }
 
   get filteredBrands(): MRPBrand[] {
-    if (!this.search.trim()) {
+    const term = this.normalizeSearch(this.search);
+    if (term.length < 4) {
       return this.brands;
     }
 
-    const term = this.normalizeSearch(this.search);
     return this.brands.filter((item) => {
       const labels = [
         item.brand,
@@ -155,7 +163,8 @@ export class AdminUpdateMrpComponent implements OnDestroy {
   }
 
   getBrandDisplayLabel(brand: MRPBrand): string {
-    return `${(brand.codes || [brand.code]).join(', ')} - ${brand.brand}`;
+    const primaryCode = (brand.codes && brand.codes.length ? brand.codes[0] : brand.code) || brand.code || '';
+    return `${primaryCode ? `${primaryCode} - ` : ''}${brand.brand}`.trim();
   }
 
   get selectedSizes() {
@@ -181,6 +190,9 @@ export class AdminUpdateMrpComponent implements OnDestroy {
 
   private applySearchSelection() {
     const normalizedSearch = this.normalizeSearch(this.search);
+    if (normalizedSearch.length < 4) {
+      return;
+    }
     const match = this.brands.find((brand) => {
       const labels = [brand.brand, brand.code, ...(brand.codes || []), this.getBrandDisplayLabel(brand)].map((value) => this.normalizeSearch(value));
       return labels.some((label) => label === normalizedSearch || label.includes(normalizedSearch));
@@ -202,8 +214,8 @@ export class AdminUpdateMrpComponent implements OnDestroy {
   }
 
   updateSelectedMrp() {
-    if (!this.selectedSize || this.auth.userRole() !== 'Admin') return;
-    localStorage.setItem('vinoledger.mrp.brands', JSON.stringify(this.brands));
+    if (!this.selectedSize || !this.canEditMrp) return;
+    localStorage.setItem(this.mrpStorageKey(), JSON.stringify(this.brands));
     this.importMessage = `${this.selectedBrand?.brand} ${this.selectedSize.size} MRP updated.`;
   }
 
@@ -212,6 +224,24 @@ export class AdminUpdateMrpComponent implements OnDestroy {
     if (!this.showAddBrandForm) {
       this.cancelAddBrand();
     }
+  }
+
+  clearMrpCache() {
+    const storageKeys = [
+      this.mrpStorageKey(),
+      'vinoledger.mrp.brands.global',
+      'vinoledger.mrp.brands'
+    ];
+
+    storageKeys.forEach((key) => {
+      if (key) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    this.brands = [];
+    this.importMessage = 'MRP cache cleared. Re-import the Excel file to regenerate the catalog.';
+    this.importError = '';
   }
 
   async submitNewBrand() {
@@ -272,7 +302,7 @@ export class AdminUpdateMrpComponent implements OnDestroy {
   }
 
   setSelectedMrp(value: number) {
-    if (this.selectedSize && this.auth.userRole() === 'Admin') {
+    if (this.selectedSize && this.canEditMrp) {
       this.selectedSize.mrp = Number(value) || 0;
     }
   }
@@ -360,36 +390,146 @@ export class AdminUpdateMrpComponent implements OnDestroy {
     }
   }
 
+  private mrpDocId(): string {
+    return 'global';
+  }
+
+  private mrpStorageKey(): string {
+    return 'vinoledger.mrp.brands.global';
+  }
+
+  private mrpOverrideStorageKey(): string {
+    return `vinoledger.mrp.overrides.${this.selectedShopId}`;
+  }
+
+  private extractOverrides(brands: MRPBrand[]): MRPBrand[] {
+    let globalBrands: MRPBrand[] = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem(this.mrpStorageKey()) || '[]');
+      globalBrands = Array.isArray(parsed) ? this.normalizeImportedBrands(parsed) : [];
+    } catch {
+      globalBrands = [];
+    }
+
+    return brands.map((brand) => {
+      const globalBrand = globalBrands.find((candidate) =>
+        this.normalizeSearch(candidate.brand) === this.normalizeSearch(brand.brand) ||
+        [candidate.code, ...(candidate.codes || [])].some((code) =>
+          [brand.code, ...(brand.codes || [])].some((currentCode) => this.normalizeSearch(code) === this.normalizeSearch(currentCode))
+        )
+      );
+      const changedSizes = brand.sizes.filter((size) => {
+        const globalSize = globalBrand?.sizes.find((candidate) =>
+          Number(candidate.sizeMl || this.parseSizeMl(candidate.size)) === Number(size.sizeMl || this.parseSizeMl(size.size))
+        );
+        return !globalSize || Number(globalSize.mrp) !== Number(size.mrp);
+      });
+      return changedSizes.length ? { ...brand, sizes: changedSizes } : null;
+    }).filter((brand): brand is MRPBrand => Boolean(brand));
+  }
+
+  private printGlobalMrpCatalog(label: string, catalog: MRPBrand[] = []) {
+    void label;
+    void catalog;
+  }
+
   private async loadStoredBrands() {
-    const saved = localStorage.getItem('vinoledger.mrp.brands');
-    if (saved) {
+    this.brands = [];
+    const storageKey = this.mrpStorageKey();
+    const savedCatalog = localStorage.getItem(storageKey);
+    const fallbackCatalog = this.isAdmin ? localStorage.getItem('vinoledger.mrp.brands.global') : localStorage.getItem('vinoledger.mrp.brands.global');
+
+    if (savedCatalog) {
       try {
-        const imported = JSON.parse(saved);
+        const imported = JSON.parse(savedCatalog);
         if (Array.isArray(imported) && imported.length) {
           this.brands = this.mergeBrands(this.normalizeImportedBrands(imported));
+          this.printGlobalMrpCatalog('Loaded from localStorage', this.brands);
         }
       } catch {
-        localStorage.removeItem('vinoledger.mrp.brands');
+        localStorage.removeItem(storageKey);
+      }
+    } else if (fallbackCatalog) {
+      try {
+        const imported = JSON.parse(fallbackCatalog);
+        if (Array.isArray(imported) && imported.length) {
+          this.brands = this.mergeBrands(this.normalizeImportedBrands(imported));
+          this.printGlobalMrpCatalog('Loaded from fallback localStorage', this.brands);
+        }
+      } catch {
+        // Ignore malformed fallback catalog.
       }
     }
 
     if (this.isFirebaseConfigured()) {
       try {
         await this.ensureFirebaseAnonymousSession();
-        const snapshot = await this.firestore.getDocumentOnce<{ brands: MRPBrand[] }>('mrpCatalog', 'brands');
+        const snapshot = await this.firestore.getDocumentOnce<{ brands: MRPBrand[]; shopId?: string }>('mrpCatalog', 'global');
+
         if (snapshot?.brands && Array.isArray(snapshot.brands) && snapshot.brands.length) {
           this.brands = this.mergeBrands(this.normalizeImportedBrands(snapshot.brands));
-          localStorage.setItem('vinoledger.mrp.brands', JSON.stringify(this.brands));
+          localStorage.setItem(storageKey, JSON.stringify(this.brands));
+          this.printGlobalMrpCatalog('Loaded from Firebase catalog', this.brands);
         }
       } catch {
         // Ignore Firebase read failures and keep the local catalog loaded.
       }
     }
+
+    if (this.selectedShopId) {
+      const overrideKey = this.mrpOverrideStorageKey();
+      const localOverride = localStorage.getItem(overrideKey);
+      if (localOverride) {
+        try {
+          const overrides = JSON.parse(localOverride);
+          if (Array.isArray(overrides)) {
+            this.brands = this.mergeBrands([...this.brands, ...this.normalizeImportedBrands(overrides)]);
+          }
+        } catch {
+          localStorage.removeItem(overrideKey);
+        }
+      }
+
+      if (this.isFirebaseConfigured()) {
+        try {
+          const snapshot = await this.firestore.getDocumentOnce<{ brands: MRPBrand[] }>('mrpCatalogOverrides', this.selectedShopId);
+          if (Array.isArray(snapshot?.brands) && snapshot.brands.length) {
+            this.brands = this.mergeBrands([...this.brands, ...this.normalizeImportedBrands(snapshot.brands)]);
+            localStorage.setItem(overrideKey, JSON.stringify(snapshot.brands));
+          }
+        } catch {
+          // Keep the global catalog and any local overrides when the override read fails.
+        }
+      }
+    }
+
+    this.updateShopChangedKeys();
   }
 
   private async persistBrandCatalog() {
     this.brands = this.mergeBrands(this.normalizeImportedBrands(this.brands));
-    localStorage.setItem('vinoledger.mrp.brands', JSON.stringify(this.brands));
+    if (this.selectedShopId) {
+      const overrides = this.extractOverrides(this.brands);
+      localStorage.setItem(this.mrpOverrideStorageKey(), JSON.stringify(overrides));
+      this.updateShopChangedKeys();
+      if (!this.isFirebaseConfigured()) return;
+
+      try {
+        await this.ensureFirebaseAnonymousSession();
+        await this.firestore.setDocument('mrpCatalogOverrides', this.selectedShopId, {
+          shopId: this.selectedShopId,
+          brands: overrides
+        });
+        this.importError = '';
+      } catch {
+        this.importError = 'Saved locally, but Firebase shop override sync failed.';
+      }
+      return;
+    }
+
+    const storageKey = this.mrpStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(this.brands));
+    this.shopChangedKeys.clear();
 
     if (!this.isFirebaseConfigured()) {
       return;
@@ -397,11 +537,49 @@ export class AdminUpdateMrpComponent implements OnDestroy {
 
     try {
       await this.ensureFirebaseAnonymousSession();
-      await this.firestore.setDocument('mrpCatalog', 'brands', { brands: this.brands });
+      const catalogIds = [this.mrpDocId()];
+      const firestoreCatalog = this.brands.map((brand) => ({
+        brand: String(brand.brand || '').trim(),
+        code: String(brand.code || '').trim(),
+        codes: (brand.codes || []).map((code) => String(code || '').trim()).filter(Boolean),
+        category: brand.category ? String(brand.category).trim() : '',
+        sizes: (brand.sizes || []).map((size) => ({
+          size: String(size.size || '').trim(),
+          sizeCode: size.sizeCode ? String(size.sizeCode).trim() : '',
+          sizeMl: Number(size.sizeMl ?? 0),
+          mrp: Number(size.mrp ?? 0)
+        })).filter((size) => size.size && Number.isFinite(size.mrp))
+      })).filter((brand) => brand.brand && brand.code && brand.sizes.length);
+
+      for (const docId of catalogIds) {
+        await this.firestore.setDocument('mrpCatalog', docId, {
+          shopId: this.isAdmin ? 'global' : (this.selectedShopId || 'global'),
+          brands: firestoreCatalog,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
       this.importError = '';
     } catch {
       this.importError = 'Saved locally, but Firebase sync failed.';
     }
+  }
+
+  isShopChanged(row: { brand: MRPBrand; size: MRPBrand['sizes'][number] }) {
+    return this.shopChangedKeys.has(this.mrpRowKey(row.brand, row.size));
+  }
+
+  private updateShopChangedKeys() {
+    this.shopChangedKeys.clear();
+    if (!this.selectedShopId) return;
+
+    this.extractOverrides(this.brands).forEach((brand) => {
+      brand.sizes.forEach((size) => this.shopChangedKeys.add(this.mrpRowKey(brand, size)));
+    });
+  }
+
+  private mrpRowKey(brand: MRPBrand, size: MRPBrand['sizes'][number]) {
+    return `${this.normalizeSearch(brand.brand)}|${this.normalizeSearch(size.size)}|${this.normalizeSearch(size.sizeCode || String(size.sizeMl || ''))}`;
   }
 
   private async ensureFirebaseAnonymousSession() {
@@ -410,7 +588,8 @@ export class AdminUpdateMrpComponent implements OnDestroy {
       return;
     }
 
-    await signInAnonymously(auth);
+    // Avoid forcing anonymous auth because Firebase projects can reject it with
+    // ADMIN_ONLY_OPERATION when anonymous sign-in is not enabled.
   }
 
   private isFirebaseConfigured() {
@@ -426,32 +605,44 @@ export class AdminUpdateMrpComponent implements OnDestroy {
 
   private parseWorkbookRows(rows: Record<string, unknown>[]): MRPBrand[] {
     const grouped = new Map<string, MRPBrand>();
+    let lastBrandName = '';
     rows.forEach((row) => {
       const values = new Map(Object.entries(row).map(([key, value]) => [this.normalizeHeader(key), value]));
       const combinedBrandValue = String(this.findValue(values, ['brandcodebrandname', 'brandnumberbrandname', 'brandnamecode', 'brandcodename', 'brandcodeandname', 'brandnumberandbrandname', 'brandnumberbrandcode']) || '').trim();
       const brandCodeValue = String(this.findValue(values, ['brandcode', 'brandnumber', 'brandno', 'brandnum', 'productcode']) || '').trim();
       const brandNumberValue = String(this.findValue(values, ['brandnumber', 'brandno', 'brandnum']) || '').trim();
       const rawBrandName = String(this.findValue(values, ['brandname', 'productname', 'brand']) || '').trim();
+      const effectiveBrandName = rawBrandName || combinedBrandValue || lastBrandName;
+      if (effectiveBrandName) {
+        lastBrandName = effectiveBrandName;
+      }
 
-      const resolvedBrand = this.resolveImportedBrandDetails(combinedBrandValue, rawBrandName, brandCodeValue, brandNumberValue);
+      const resolvedBrand = this.resolveImportedBrandDetails(combinedBrandValue, effectiveBrandName, brandCodeValue, brandNumberValue);
       const normalizedCode = this.normalizeBrandCode(resolvedBrand.code || brandCodeValue || brandNumberValue || '');
       const brand = resolvedBrand.name || rawBrandName;
 
       const daySheetBrand = this.resolveBrandFromDaySheet(brand, normalizedCode);
-      const finalBrandName = daySheetBrand?.brand || brand;
-      const finalBrandCode = this.normalizeBrandCode(daySheetBrand?.code || normalizedCode || '');
+      const finalBrandName = brand || daySheetBrand?.brand || '';
+      const finalBrandCode = this.normalizeBrandCode(normalizedCode || daySheetBrand?.code || '');
 
-      const sizeMl = this.parseSizeMl(this.findValue(values, ['sizeinml', 'sizeml', 'size', 'quantity']));
+      const sizeMl = this.resolveSizeMlFromRow(values, row);
       const sizeCode = String(this.findValue(values, ['sizecode', 'sizeid']) || '').trim();
-      const mrp = this.parseNumber(this.findValue(values, ['mrp', 'mrpvalue', 'maximumretailprice']));
-      if (!finalBrandName || !finalBrandCode || !sizeMl || !Number.isFinite(mrp)) return;
+      const mrp = this.parseNumber(this.findValue(values, ['mrp', 'mrpvalue', 'maximumretailprice', 'price', 'rate']));
+      const bottlesPerCase = this.parseNumber(this.findValue(values, ['unitspercase', 'unitpercase', 'bottlespercase', 'unitsincase']));
+      if (!finalBrandName || !finalBrandCode || !sizeMl || !Number.isFinite(mrp)) {
+        return;
+      }
       const key = this.normalizeSearch(finalBrandName);
       const current = grouped.get(key) || { brand: finalBrandName, code: finalBrandCode, codes: [], sizes: [] };
       current.codes = Array.from(new Set([...(current.codes || []), finalBrandCode]));
       current.code = current.codes[0] || finalBrandCode;
       const duplicate = current.sizes.find((size) => size.sizeMl === sizeMl && size.sizeCode === sizeCode);
-      if (duplicate) duplicate.mrp = mrp;
-      else current.sizes.push({ size: `${sizeMl}ml`, sizeCode, sizeMl, mrp });
+      if (duplicate) {
+        duplicate.mrp = mrp;
+        if (bottlesPerCase > 0) duplicate.bottlesPerCase = bottlesPerCase;
+      } else {
+        current.sizes.push({ size: `${sizeMl}ml`, sizeCode, sizeMl, mrp, bottlesPerCase: bottlesPerCase || undefined });
+      }
       grouped.set(key, current);
     });
     return Array.from(grouped.values()).map((brand) => ({
@@ -475,24 +666,31 @@ export class AdminUpdateMrpComponent implements OnDestroy {
     const exactCodeIndex = directHeaders.findIndex((header) => header === 'brandcode' || header === 'brandnumber' || header === 'brandno' || header === 'brandnum');
     const exactNameIndex = directHeaders.findIndex((header) => header === 'brandname' || header === 'productname' || header === 'brand');
     const exactSizeIndex = directHeaders.findIndex((header) => header === 'size' || header === 'sizeinml' || header === 'sizeml' || header === 'quantity' || header === 'packqtysize' || header === 'packqty');
+    const exactUnitsPerCaseIndex = directHeaders.findIndex((header) => header === 'unitspercase' || header === 'unitpercase' || header === 'bottlespercase' || header === 'unitsincase');
     const exactMrpIndex = directHeaders.findIndex((header) => header === 'mrp' || header === 'mrpvalue' || header === 'maximumretailprice' || header === 'rate' || header === 'price');
 
-    const combinedBrandIndex = exactIndex(['brandcodebrandname', 'brandnumberbrandname', 'brandnamecode', 'brandcodename', 'brandcodeandname', 'brandnumberandbrandname', 'brandnumberbrandcode']) ??
-      containsIndex(['brandcodebrandname', 'brandnumberbrandname', 'brandnamecode', 'brandcodename', 'brandcodeandname', 'brandnumberandbrandname', 'brandnumberbrandcode']);
+    const firstIndex = (...indexes: number[]) => indexes.find((index) => index >= 0) ?? -1;
+    const combinedBrandIndex = firstIndex(
+      exactIndex(['brandcodebrandname', 'brandnumberbrandname', 'brandnamecode', 'brandcodename', 'brandcodeandname', 'brandnumberandbrandname', 'brandnumberbrandcode']),
+      containsIndex(['brandcodebrandname', 'brandnumberbrandname', 'brandnamecode', 'brandcodename', 'brandcodeandname', 'brandnumberandbrandname', 'brandnumberbrandcode'])
+    );
     const codeIndex = exactCodeIndex >= 0 ? exactCodeIndex :
-      exactIndex(['brandcode', 'brandnumber', 'brandno', 'brandnum']) ??
-      exactIndex(['productcode', 'code']) ??
-      containsIndex(['brandcode', 'brandnumber', 'brandno', 'brandnum', 'productcode', 'code']);
+      firstIndex(exactIndex(['brandcode', 'brandnumber', 'brandno', 'brandnum']),
+      exactIndex(['productcode', 'code']),
+      containsIndex(['brandcode', 'brandnumber', 'brandno', 'brandnum', 'productcode', 'code']));
     const nameIndex = exactNameIndex >= 0 ? exactNameIndex :
-      exactIndex(['brandname', 'productname', 'brand']) ??
-      containsIndex(['brandname', 'productname', 'brand']);
+      firstIndex(exactIndex(['brandname', 'productname', 'brand']),
+      containsIndex(['brandname', 'productname', 'brand']));
     const sizeIndex = exactSizeIndex >= 0 ? exactSizeIndex :
-      exactIndex(['sizeinml', 'sizeml', 'size', 'quantity', 'packqtysize', 'packqty']) ??
-      containsIndex(['sizeinml', 'sizeml', 'size', 'quantity', 'packqtysize', 'packqty']);
-    const sizeCodeIndex = exactIndex(['sizecode', 'sizeid']) ?? containsIndex(['sizecode', 'sizeid']);
+      firstIndex(exactIndex(['sizeinml', 'sizeml', 'size', 'quantity', 'packqtysize', 'packqty']),
+      containsIndex(['sizeinml', 'sizeml', 'size', 'quantity', 'packqtysize', 'packqty']));
+    const unitsPerCaseIndex = exactUnitsPerCaseIndex >= 0 ? exactUnitsPerCaseIndex :
+      firstIndex(exactIndex(['unitspercase', 'unitpercase', 'bottlespercase', 'unitsincase']),
+      containsIndex(['unitspercase', 'unitpercase', 'bottlespercase', 'unitsincase']));
+    const sizeCodeIndex = firstIndex(exactIndex(['sizecode', 'sizeid']), containsIndex(['sizecode', 'sizeid']));
     const mrpIndex = exactMrpIndex >= 0 ? exactMrpIndex :
-      exactIndex(['mrp', 'maximumretailprice', 'mrpvalue', 'rate', 'price']) ??
-      containsIndex(['mrp', 'maximumretailprice', 'mrpvalue', 'rate', 'price']);
+      firstIndex(exactIndex(['mrp', 'maximumretailprice', 'mrpvalue', 'rate', 'price']),
+      containsIndex(['mrp', 'maximumretailprice', 'mrpvalue', 'rate', 'price']));
 
     const wideSizeColumns = headerRow
       .map((cell, index) => {
@@ -520,11 +718,13 @@ export class AdminUpdateMrpComponent implements OnDestroy {
       })
       .filter((column): column is { index: number; sizeMl: number } => column !== null);
 
-    const rows: Record<string, unknown>[] = matrix.slice(headerIndex + 1).map((row) => ({
+    const normalizedRows = matrix.slice(headerIndex + 1).filter((row) => !this.isHeaderRow(row));
+    const rows: Record<string, unknown>[] = normalizedRows.map((row) => ({
       brandCode: codeIndex >= 0 ? row[codeIndex] ?? '' : '',
       brandName: nameIndex >= 0 ? row[nameIndex] ?? '' : '',
       brandCodeBrandName: combinedBrandIndex >= 0 ? row[combinedBrandIndex] ?? '' : '',
       sizeInMl: row[sizeIndex] ?? '',
+      unitsPerCase: unitsPerCaseIndex >= 0 ? row[unitsPerCaseIndex] ?? '' : '',
       sizeCode: row[sizeCodeIndex] ?? '',
       mrp: row[mrpIndex] ?? ''
     }));
@@ -541,7 +741,14 @@ export class AdminUpdateMrpComponent implements OnDestroy {
         wideSizeColumns.forEach(({ index, sizeMl }) => {
           const mrp = row[index];
           if (mrp === '' || mrp === null || mrp === undefined) return;
-          wideRows.push({ brandCode, brandName, brandCodeBrandName, sizeInMl: sizeMl, mrp });
+          wideRows.push({
+            brandCode,
+            brandName,
+            brandCodeBrandName,
+            sizeInMl: sizeMl,
+            unitsPerCase: unitsPerCaseIndex >= 0 ? row[unitsPerCaseIndex] ?? '' : '',
+            mrp
+          });
         });
       });
       return this.parseWorkbookRows(wideRows);
@@ -570,6 +777,32 @@ export class AdminUpdateMrpComponent implements OnDestroy {
     return bestScore >= 2 ? bestIndex : -1;
   }
 
+  private isHeaderRow(row: unknown[]): boolean {
+    const normalized = row
+      .map((cell) => this.normalizeHeader(String(cell || '')))
+      .filter(Boolean);
+
+    if (!normalized.length) return false;
+
+    const headerSignals = [
+      'brandname',
+      'productcode',
+      'brandnumber',
+      'sizeinml',
+      'packtype',
+      'unitspercase',
+      'latestmrp',
+      'mrp',
+      'size',
+      'pack',
+      'brandcode',
+      'productname'
+    ];
+
+    const matches = normalized.filter((cell) => headerSignals.some((signal) => cell.includes(signal))).length;
+    return matches >= 2;
+  }
+
   private extractSizeMl(header: string): number | null {
     const match = /(?:^|[^0-9])([0-9]+(?:[.][0-9]+)?)(?:ml)?(?:[^0-9]|$)/.exec(header);
     if (!match) return null;
@@ -579,8 +812,16 @@ export class AdminUpdateMrpComponent implements OnDestroy {
 
   private parseSizeMl(value: unknown): number {
     if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-    const match = /[0-9]+(?:[.,][0-9]+)?/.exec(String(value || '').replace(/,/g, ''));
-    return match ? Number(match[0].replace(',', '.')) : 0;
+
+    const raw = String(value ?? '').trim();
+    if (!raw) return 0;
+
+    const normalized = raw.toLowerCase().replace(/,/g, '').replace(/\s+/g, '');
+    const match = normalized.match(/(\d+(?:\.\d+)?)(?:ml|milliliter|milliliters|m)?/i);
+    if (!match) return 0;
+
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
   private parseNumber(value: unknown): number {
@@ -594,6 +835,26 @@ export class AdminUpdateMrpComponent implements OnDestroy {
       if (values.has(candidate)) return values.get(candidate);
     }
     return '';
+  }
+
+  private resolveSizeMlFromRow(values: Map<string, unknown>, row: Record<string, unknown>): number {
+    const directValue = this.findValue(values, ['sizeinml', 'sizeml', 'size', 'quantity', 'packqtysize', 'packqty']);
+    const directSize = this.parseSizeMl(directValue);
+    if (directSize > 0) return directSize;
+
+    const candidateValues = [...Object.values(row)]
+      .map((value) => this.parseSizeMl(value))
+      .filter((value) => value > 0);
+
+    if (!candidateValues.length) return 0;
+
+    const preferred = [90, 180, 375, 750, 1000, 2000];
+    for (const target of preferred) {
+      const match = candidateValues.find((value) => value === target);
+      if (match) return match;
+    }
+
+    return candidateValues[0];
   }
 
   private resolveImportedBrandDetails(combinedBrandValue: string, rawBrandName: string, brandCodeValue: string, brandNumberValue: string) {
@@ -643,12 +904,12 @@ export class AdminUpdateMrpComponent implements OnDestroy {
   }
 
   private isBrandCode(candidate: string): boolean {
-    return /^[A-Za-z][0-9]{3}$/.test(candidate.trim());
+    return /^(?:[A-Za-z][0-9]{3}|[0-9]{4})$/.test(candidate.trim());
   }
 
   private extractBrandCode(value: string): string {
     const text = String(value || '');
-    const match = text.match(/[A-Za-z][0-9]{3}/g)?.find((code) => this.isBrandCode(code));
+    const match = text.match(/(?:[A-Za-z][0-9]{3}|\b[0-9]{4}\b)/g)?.find((code) => this.isBrandCode(code));
     return match || '';
   }
 
@@ -733,12 +994,55 @@ export class AdminUpdateMrpComponent implements OnDestroy {
       current.code = current.codes[0] || current.code;
       current.category = current.category || raw.category;
       (raw.sizes || []).forEach((incoming) => {
-        const existing = current.sizes.find((size) => size.size === incoming.size && size.sizeCode === incoming.sizeCode);
-        if (existing) existing.mrp = incoming.mrp;
-        else current.sizes.push({ ...incoming });
+        const incomingKey = this.sizeKeyFromEntry(incoming);
+        const existing = current.sizes.find((size) => {
+          const sizeKey = this.sizeKeyFromEntry(size);
+          if (sizeKey === incomingKey) {
+            return true;
+          }
+
+          const sizeMl = Number(size.sizeMl ?? this.parseSizeMl(size.size));
+          const incomingMl = Number(incoming.sizeMl ?? this.parseSizeMl(incoming.size));
+          if (sizeMl > 0 && incomingMl > 0 && sizeMl === incomingMl) {
+            return true;
+          }
+
+          const sizeText = this.normalizeSearch(String(size.size ?? ''));
+          const incomingText = this.normalizeSearch(String(incoming.size ?? ''));
+          return sizeText && incomingText && sizeText === incomingText;
+        });
+
+        if (existing) {
+          existing.mrp = incoming.mrp;
+          if (incoming.bottlesPerCase) {
+            existing.bottlesPerCase = incoming.bottlesPerCase;
+          }
+          if (incoming.sizeCode && !existing.sizeCode) {
+            existing.sizeCode = incoming.sizeCode;
+          }
+          if (incoming.sizeMl && !existing.sizeMl) {
+            existing.sizeMl = incoming.sizeMl;
+          }
+          if (incoming.size && !existing.size) {
+            existing.size = incoming.size;
+          }
+        } else {
+          current.sizes.push({ ...incoming });
+        }
       });
       merged.set(key, current);
     });
     return Array.from(merged.values());
+  }
+
+  private sizeKeyFromEntry(size: { size?: string; sizeCode?: string; sizeMl?: number }): string {
+    if (typeof size.sizeMl === 'number' && Number.isFinite(size.sizeMl)) {
+      return `ml:${size.sizeMl}`;
+    }
+    const digits = String(size.size ?? '').match(/[0-9]+(?:\.[0-9]+)?/);
+    if (digits?.[0]) {
+      return `text:${Number(digits[0])}`;
+    }
+    return `code:${String(size.sizeCode ?? '').trim().toLowerCase()}`;
   }
 }

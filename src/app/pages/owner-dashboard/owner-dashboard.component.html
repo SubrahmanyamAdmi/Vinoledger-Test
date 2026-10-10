@@ -1,49 +1,42 @@
 <div class="owner-shell">
-  <header class="topbar">
-    <div class="brand-block">
-      <div class="brand-mark">VS</div>
-      <div class="brand-copy">
-        <span class="owner-name">{{ auth.currentUser()?.name || 'Vikram Singh' }}</span>
-        <span class="owner-role">Owner Dashboard</span>
+  <div class="app-body">
+    <main class="content vl-page-content">
+      <div class="page-head">
+        <div class="page-head-copy">
+          <p class="eyebrow">Owner Dashboard</p>
+          <h1>Welcome back, {{ auth.currentUser()?.name || 'Owner' }}</h1>
+          <p class="subtitle">Manage your wine ledger and shop performance with a single view.</p>
+        </div>
       </div>
-    </div>
 
-    <button class="logout-btn" type="button" (click)="logout()">Logout</button>
-  </header>
+      <div class="stats-grid">
+        <article class="stat-card accent">
+          <div class="stat-icon"><app-icon name="bottle"></app-icon></div>
+          <div>
+            <span>Present Stock Value</span>
+            <strong>{{ isLoadingFigures ? 'Loading...' : ('₹' + (presentStockValue | number:'1.2-2')) }}</strong>
+          </div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-icon"><app-icon name="cash"></app-icon></div>
+          <div>
+            <span>Present Cash Value</span>
+            <strong>{{ isLoadingFigures ? 'Loading...' : ('₹' + (presentCashValue | number:'1.2-2')) }}</strong>
+          </div>
+        </article>
+      </div>
 
-  <main class="content-wrap">
-    <h1>Welcome back, {{ auth.currentUser()?.name || 'Y Bathalaswamy' }}</h1>
-    <p class="subtitle">Manage your wine ledger and shop performance</p>
-    <div class="shop-identity" *ngIf="auth.currentUser()?.shopId">
-      <span>SHOP</span>
-      <strong>{{ shopName }}</strong>
-      <strong>{{ auth.currentUser()?.shopId }}</strong>
-    </div>
+      <div class="card-grid">
+        <button type="button" class="dash-card" *ngFor="let card of cards" (click)="navigateTo(card.route)">
+          <span class="card-icon"><app-icon [name]="card.icon"></app-icon></span>
+          <span class="card-body">
+            <span class="card-title">{{ card.title }}</span>
+            <span class="card-desc">{{ card.desc }}</span>
+          </span>
+          <span class="card-chevron"><app-icon name="chevron-right"></app-icon></span>
+        </button>
+      </div>
+    </main>
+  </div>
 
-    <div class="card-grid">
-      <button type="button" class="dash-card" *ngFor="let card of cards" (click)="navigateTo(card.route)">
-        <span class="card-icon" aria-hidden="true">{{ card.icon }}</span>
-        <span class="card-label">{{ card.title }}</span>
-      </button>
-    </div>
-  </main>
-
-  <nav class="bottom-nav" aria-label="Main navigation">
-    <button class="nav-item active" type="button">
-      <span class="icon">⌂</span>
-      <span>Home</span>
-    </button>
-    <button class="nav-item" type="button">
-      <span class="icon">▣</span>
-      <span>Stock</span>
-    </button>
-    <button class="nav-item" type="button">
-      <span class="icon">▤</span>
-      <span>Reports</span>
-    </button>
-    <button class="nav-item" type="button">
-      <span class="icon">⚙</span>
-      <span>Settings</span>
-    </button>
-  </nav>
 </div>

@@ -67,9 +67,12 @@
   border: none;
   background: transparent;
   color: #ef4b7c;
-  font-size: 2rem;
+  font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid #d4d0c3;
+  border-radius: 5px;
 }
 
 .content-wrap {
@@ -103,6 +106,16 @@ h1 {
   font-weight: 800;
 }
 
+.page-title-copy {
+  min-width: 0;
+}
+
+.page-description {
+  margin: 8px 0 0;
+  color: var(--vl-text-secondary);
+  font: 400 0.94rem/1.55 'Inter', sans-serif;
+}
+
 .search-panel {
   border: 1px solid #dfe1e2;
   background: rgba(255, 255, 255, 0.1);
@@ -120,6 +133,17 @@ h1 {
 }
 
 .search-panel input {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #d5d7d8;
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 1.05rem;
+  outline: none;
+  background: rgba(255,255,255,0.55);
+}
+
+.search-panel select {
   width: 100%;
   min-height: 52px;
   border: 1px solid #d5d7d8;
@@ -282,6 +306,16 @@ h1 {
   font-size: 1rem;
 }
 
+.table-row.shop-mrp-changed {
+  background: #fff0f0;
+  box-shadow: inset 4px 0 0 #d64545;
+}
+
+.table-row.shop-mrp-changed .mrp-cell {
+  color: #b42323;
+  font-weight: 700;
+}
+
 .table-row span {
   white-space: nowrap;
   overflow: hidden;
@@ -292,6 +326,19 @@ h1 {
   white-space: normal;
   overflow: visible;
   overflow-wrap: anywhere;
+}
+
+.table-row .brand-name-cell {
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.table-row .brand-name-cell > span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .table-header span:nth-child(n + 3),
@@ -373,5 +420,14 @@ h1 {
   .selection-grid { grid-template-columns: 1fr; align-items: stretch; }
   .new-brand-grid { grid-template-columns: 1fr; }
   .table-header,
-  .table-row { grid-template-columns: 120px minmax(0, 1fr) 90px 100px; }
+  .table-row {
+    min-width: 330px;
+    grid-template-columns: 34px minmax(112px, 1fr) 58px 88px;
+    gap: 5px;
+    padding: 0 8px;
+  }
+
+  .table-row .brand-codes { display: none; }
+  .table-row .brand-name-cell { overflow-wrap: break-word; }
+  .table-header .brand-code-heading { display: none; }
 }

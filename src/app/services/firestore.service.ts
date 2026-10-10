@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { getAuth } from 'firebase/auth';
 import {
   addDoc,
   collection,
@@ -10,6 +11,7 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -83,21 +85,47 @@ export class FirestoreService {
     });
   }
 
-  createDocument<T extends FirestoreItem>(path: string, data: WithFieldValue<T>): Promise<string> {
+  async createDocument<T extends FirestoreItem>(path: string, data: WithFieldValue<T>): Promise<string> {
+    await this.ensureAuthenticated();
     const ref = collection(this.firestore, path);
     return this.withTimeout(
       addDoc(ref, { ...data, createdAt: serverTimestamp() } as WithFieldValue<DocumentData>).then((saved) => saved.id)
     );
   }
 
-  setDocument<T extends FirestoreItem>(path: string, id: string, data: WithFieldValue<T>): Promise<void> {
+  async setDocument<T extends FirestoreItem>(path: string, id: string, data: WithFieldValue<T>): Promise<void> {
+    await this.ensureAuthenticated();
     const ref = doc(this.firestore, path, id);
-    return setDoc(ref, { ...data, updatedAt: serverTimestamp() } as WithFieldValue<DocumentData>, { merge: true });
+    const payload = this.cleanForFirestore({
+      ...(data as Record<string, unknown>),
+      updatedAt: new Date().toISOString()
+    } as Record<string, unknown>);
+    return this.withTimeout(setDoc(ref, payload as WithFieldValue<DocumentData>, { merge: true }));
   }
 
-  updateDocument<T extends FirestoreItem>(path: string, id: string, data: Partial<T>): Promise<void> {
+  async createDocumentIfAbsent<T extends FirestoreItem>(path: string, id: string, data: WithFieldValue<T>): Promise<boolean> {
+    await this.ensureAuthenticated();
     const ref = doc(this.firestore, path, id);
-    return updateDoc(ref, { ...data, updatedAt: serverTimestamp() } as Partial<DocumentData>);
+    return this.withTimeout(runTransaction(this.firestore, async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      if (snapshot.exists()) {
+        return false;
+      }
+
+      const payload = this.cleanForFirestore({
+        ...(data as Record<string, unknown>),
+        id,
+        createdAt: new Date().toISOString(),
+      });
+      transaction.set(ref, payload as WithFieldValue<DocumentData>);
+      return true;
+    }));
+  }
+
+  async updateDocument<T extends FirestoreItem>(path: string, id: string, data: Partial<T>): Promise<void> {
+    await this.ensureAuthenticated();
+    const ref = doc(this.firestore, path, id);
+    return this.withTimeout(updateDoc(ref, { ...data, updatedAt: serverTimestamp() } as Partial<DocumentData>));
   }
 
   deleteDocument(path: string, id: string): Promise<void> {
@@ -106,6 +134,46 @@ export class FirestoreService {
 
   whereEquals(field: string, value: string): QueryConstraint {
     return where(field, '==', value);
+  }
+
+  private async ensureAuthenticated(): Promise<void> {
+    const auth = getAuth();
+    if (auth.currentUser) {
+      return;
+    }
+
+    // Firebase rules are intentionally permissive for this dev project, so do not force
+    // anonymous sign-in here. Anonymous auth can fail with ADMIN_ONLY_OPERATION when it is
+    // disabled in the Firebase project configuration.
+  }
+
+  private cleanForFirestore<T>(value: T): T {
+    if (value === undefined) {
+      return undefined as T;
+    }
+
+    if (value === null) {
+      return null as T;
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this.cleanForFirestore(item))
+        .filter((item) => item !== undefined) as T;
+    }
+
+    if (typeof value === 'object') {
+      const cleaned: Record<string, unknown> = {};
+      Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
+        const nextValue = this.cleanForFirestore(item);
+        if (nextValue !== undefined) {
+          cleaned[key] = nextValue;
+        }
+      });
+      return cleaned as T;
+    }
+
+    return value;
   }
 
   private withTimeout<T>(request: Promise<T>, timeoutMs = 8000): Promise<T> {

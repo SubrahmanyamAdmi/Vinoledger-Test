@@ -1,6 +1,7 @@
 import { RouterModule, Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard.guard';
 import { roleGuard } from './guards/role.guard.guard';
+import { pendingSheetDateGuard } from './guards/pending-sheet-date.guard';
 import { NgModule } from '@angular/core';
 
 export const routes: Routes = [
@@ -18,6 +19,11 @@ export const routes: Routes = [
   {
     path: 'invoice',
     loadComponent: () => import('./pages/invoice-entry/invoice-entry.component').then((m) => m.InvoiceEntryComponent),
+    canActivate: [authGuard, roleGuard(['User', 'Admin']), pendingSheetDateGuard],
+  },
+  {
+    path: 'opening-stock',
+    loadComponent: () => import('./pages/opening-stock/opening-stock.component').then((m) => m.OpeningStockComponent),
     canActivate: [authGuard, roleGuard(['User', 'Admin'])],
   },
   {
@@ -85,6 +91,26 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard(['Owner'])],
   },
   {
+    path: 'manage-partners/:id',
+    loadComponent: () => import('./pages/manage-partners/manage-partners.component').then((m) => m.ManagePartnersComponent),
+    canActivate: [authGuard, roleGuard(['Owner', 'User'])],
+  },
+  {
+    path: 'manage-partners',
+    loadComponent: () => import('./pages/manage-partners/manage-partners.component').then((m) => m.ManagePartnersComponent),
+    canActivate: [authGuard, roleGuard(['Owner', 'User'])],
+  },
+  {
+    path: 'stock',
+    loadComponent: () => import('./pages/stock/stock.component').then((m) => m.StockComponent),
+    canActivate: [authGuard, roleGuard(['Owner', 'User'])],
+  },
+  {
+    path: 'generate-invoice',
+    loadComponent: () => import('./pages/generate-invoice/generate-invoice.component').then((m) => m.GenerateInvoiceComponent),
+    canActivate: [authGuard, roleGuard(['Owner'])],
+  },
+  {
     path: 'mrp-check',
     loadComponent: () => import('./pages/admin-dashboard/admin-update-mrp.component').then((m) => m.AdminUpdateMrpComponent),
     canActivate: [authGuard],
@@ -103,7 +129,7 @@ export const routes: Routes = [
   {
     path: 'day-sheet',
     loadComponent: () => import('./pages/day-sheet/day-sheet.component').then((m) => m.DaySheetComponent),
-    canActivate: [authGuard, roleGuard(['User', 'Admin'])],
+    canActivate: [authGuard, roleGuard(['User', 'Admin']), pendingSheetDateGuard],
   },
   {
     path: 'inventory',

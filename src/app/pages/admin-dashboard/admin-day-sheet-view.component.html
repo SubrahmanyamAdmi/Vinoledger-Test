@@ -1,25 +1,31 @@
 <div class="day-sheet-container">
-  <header class="header">
+  <header class="header vl-page-content">
     <div>
-      <h1>Admin Console</h1>
+      <h1>Day Sheet Review</h1>
       <div class="user-info">
-        <span class="user-name">Rajesh Kumar (Cashier)</span>
-        <span class="user-role">Cashier Role</span>
+        <span class="user-name">Platform Administrator</span>
+        <span class="user-role">Admin Role</span>
       </div>
     </div>
-    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to Dashboard</span>
+    </button>
   </header>
 
-  <div class="content-wrapper">
+  <div class="content-wrapper vl-page-content">
     <div class="management-panel">
       <div class="shop-selector-block">
         <div class="form-group form-inline">
-          <select id="shop-select" [(ngModel)]="selectedShopId" class="form-control select-control">
-            <option value="" disabled>{{ loadingShops ? 'Loading shops...' : (shopLoadError || 'Select shop') }}</option>
-            <option *ngFor="let shop of shops" [value]="shop.id">
-              {{ shop.owner }} - {{ shop.id }}
-            </option>
-          </select>
+          <app-select
+            id="shop-select"
+            ariaLabel="Select shop"
+            [placeholder]="loadingShops ? 'Loading shops...' : (shopLoadError || 'Select shop')"
+            [options]="shopOptions"
+            [(ngModel)]="selectedShopId"
+            (ngModelChange)="onShopChanged()"
+            [disabled]="loadingShops || !!shopLoadError"
+          ></app-select>
         </div>
       </div>
 
@@ -47,11 +53,17 @@
                 *ngFor="let day of week"
                 [class.muted]="!day.inMonth"
                 [class.selected]="day.isSelected"
-                [class.clickable]="day.inMonth"
-                (click)="day.inMonth && selectDate(day.value)"
+                [class.submitted]="day.isSubmitted"
+                [class.pending]="day.isPending"
+                [class.clickable]="day.inMonth && day.isSelectable"
+                (click)="day.inMonth && day.isSelectable && selectDate(day.value)"
               >
                 {{ day.day }}
               </span>
+            </div>
+            <div class="calendar-legend">
+              <span><i class="legend-dot submitted-dot"></i>Submitted</span>
+              <span><i class="legend-dot pending-dot"></i>Pending</span>
             </div>
           </div>
         </div>

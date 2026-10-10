@@ -1,40 +1,32 @@
-<main class="owner-invoices-shell">
-  <header class="topbar">
-    <div>
-      <span class="eyebrow">OWNER INVOICES</span>
-      <h1>{{ ownerName }}</h1>
-    </div>
-    <button type="button" class="back-dashboard" (click)="goBack()">Back to Dashboard</button>
-  </header>
+<main class="owner-invoices-shell vl-page-content">
+  <section class="owner-page-intro invoice-intro">
+    <p class="eyebrow">Billing records</p>
+    <h1>Invoices</h1>
+    <p>Review recorded invoices and download invoice details or the original uploaded file.</p>
+  </section>
 
-  <section class="shop-summary">
-    <div>
-      <span class="label">YOUR SHOP ID</span>
-      <strong>{{ shopId }}</strong>
+  <section class="invoice-metrics">
+    <div class="summary-item">
+      <span class="label">Total Invoices</span>
+      <strong>{{ isLoading ? '...' : invoices.length }}</strong>
     </div>
-    <div class="summary-total">
-      <span class="label">TOTAL INVOICES</span>
-      <strong>{{ invoices.length }}</strong>
-    </div>
-    <div class="summary-total">
-      <span class="label">TOTAL AMOUNT</span>
-      <strong>&#8377; {{ totalAmount | number:'1.2-2' }}</strong>
+    <div class="summary-item accent">
+      <span class="label">Total Amount</span>
+      <strong *ngIf="isLoading">Loading...</strong>
+      <strong *ngIf="!isLoading">₹ {{ totalAmount | number:'1.2-2' }}</strong>
     </div>
   </section>
 
   <section class="invoice-section">
-    <div class="section-heading">
-      <div>
-        <span class="eyebrow">INVOICE REGISTER</span>
-        <h2>All invoices for {{ shopId }}</h2>
-      </div>
+    <div class="empty-state" *ngIf="isLoading">
+      Loading invoices...
     </div>
 
-    <div class="empty-state" *ngIf="!invoices.length">
+    <div class="empty-state" *ngIf="!isLoading && !invoices.length">
       No invoices are available for this shop yet.
     </div>
 
-    <div class="table-wrap" *ngIf="invoices.length">
+    <div class="table-wrap" *ngIf="!isLoading && invoices.length">
       <table>
         <thead>
           <tr>
@@ -51,10 +43,10 @@
               <strong>{{ invoice.date }}</strong>
               <span class="reference">{{ invoice.referenceNo }}</span>
             </td>
-            <td class="amount">&#8377; {{ invoice.amount | number:'1.2-2' }}</td>
+            <td class="amount">₹ {{ invoice.amount | number:'1.2-2' }}</td>
             <td class="actions">
-              <button type="button" class="action-btn" (click)="downloadInvoice(invoice)" [attr.aria-label]="'Download details for ' + invoice.referenceNo" title="Download invoice details">Details CSV</button>
-              <button type="button" class="action-btn" (click)="downloadInvoiceFile(invoice)" [attr.aria-label]="'Download uploaded file for ' + invoice.referenceNo" title="Download uploaded invoice file">{{ invoice.fileData ? 'Download PDF' : 'PDF unavailable' }}</button>
+              <button type="button" class="action-btn" (click)="downloadInvoice(invoice)" [attr.aria-label]="'Download details for ' + invoice.referenceNo" title="Download invoice details">CSV</button>
+              <button type="button" class="action-btn primary" (click)="downloadInvoiceFile(invoice)" [attr.aria-label]="'Download uploaded file for ' + invoice.referenceNo" title="Download uploaded invoice file">{{ invoice.fileData ? 'PDF' : 'N/A' }}</button>
             </td>
           </tr>
         </tbody>

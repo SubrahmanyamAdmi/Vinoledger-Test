@@ -1,15 +1,4 @@
-<div class="users-container">
-  <header class="header-profile">
-    <div class="user-profile">
-      <span class="profile-icon">👤</span>
-      <div class="profile-info">
-        <div class="profile-label">Admin Console</div>
-        <div class="profile-name">System Admin</div>
-      </div>
-    </div>
-    <button class="logout-btn">← Logout</button>
-  </header>
-
+<div class="users-container vl-page-content">
   <div class="users-header">
     <h1>User Management</h1>
     <p class="subtitle">Manage system access and roles</p>
@@ -46,7 +35,9 @@
           <td class="email-cell">{{ user.email }}</td>
           <td>{{ user.shop }}</td>
           <td class="action-cell">
-            <button class="delete-btn" (click)="deleteUser(user.id)">🗑️</button>
+            <button class="delete-btn" type="button" (click)="deleteUser(user.id)" [attr.aria-label]="'Delete ' + user.name" title="Delete">
+              <app-icon name="trash"></app-icon>
+            </button>
           </td>
         </tr>
       </tbody>
@@ -58,6 +49,9 @@
   </footer>
 
   <div class="back-button">
-    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to Dashboard</span>
+    </button>
   </div>
 </div>

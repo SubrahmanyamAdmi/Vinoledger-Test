@@ -1,4 +1,4 @@
-<div class="placeholder-container">
+<div class="placeholder-container vl-page-content">
   <header class="header">
     <h1>Business Flow</h1>
     <p>Monitor and manage business operations flow</p>
@@ -6,7 +6,7 @@
 
   <div class="content">
     <div class="feature-box">
-      <h2>📊 Business Flow Analytics</h2>
+      <h2><app-icon name="chart"></app-icon> Business Flow Analytics</h2>
       <p>This feature will provide comprehensive insights into:</p>
       <ul>
         <li>Order processing pipeline</li>
@@ -17,6 +17,9 @@
       </ul>
     </div>
 
-    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to Dashboard</span>
+    </button>
   </div>
 </div>

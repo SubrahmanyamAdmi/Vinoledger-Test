@@ -1,4 +1,277 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap');
+
 /* You can add global styles to this file, and also import other style files */
 
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--vl-ivory);
+  color: var(--vl-text-primary);
+}
+
+:root {
+  /* VinoLedger Corporate Premium */
+  --vl-navy: #0B1B33;
+  --vl-navy-dark: #081426;
+  --vl-navy-light: #14253D;
+
+  --vl-champagne: #D4B56A;
+  --vl-champagne-light: #F4E9CF;
+
+  --vl-ivory: #F8F6F0;
+  --vl-white: #FFFFFF;
+
+  --vl-text-primary: #14253D;
+  --vl-text-secondary: #64748B;
+
+  --vl-border: #E5DED0;
+
+  --vl-success: #3F7D5A;
+  --vl-warning: #B8862D;
+  --vl-danger: #B94A48;
+
+  --vl-radius-sm: 8px;
+  --vl-radius-md: 12px;
+  --vl-radius-lg: 16px;
+
+  --vl-shadow: 0 4px 20px rgba(11, 27, 51, 0.08);
+
+  /* Legacy aliases for compatibility with existing page styles */
+  --vl-espresso: var(--vl-navy);
+  --vl-mocha: var(--vl-text-secondary);
+  --vl-bronze: var(--vl-champagne);
+}
+
+/* Unified back/logout action button used across the app so every page shares one visual style */
+.app-back-btn,
+.app-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--vl-radius-sm);
+  border: 1px solid rgba(11, 27, 51, 0.18);
+  background: var(--vl-white);
+  color: var(--vl-text-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.app-back-btn svg,
+.app-logout-btn svg,
+.app-back-btn app-icon,
+.app-logout-btn app-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.app-back-btn:hover,
+.app-logout-btn:hover {
+  background: var(--vl-navy);
+  color: var(--vl-white);
+  border-color: var(--vl-navy);
+  transform: translateY(-1px);
+}
+
+@media (min-width: 901px) {
+  .app-back-btn {
+    display: none !important;
+  }
+}
+
+.app-frame .route-content select.vl-select {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--vl-border);
+  border-radius: 6px;
+  appearance: none;
+  background-color: var(--vl-white);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--vl-navy-light) 50%),
+    linear-gradient(135deg, var(--vl-navy-light) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% - 2px),
+    calc(100% - 9px) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
+  color: var(--vl-text-primary);
+  font: 500 0.9rem/1.2 'Inter', sans-serif;
+  cursor: pointer;
+}
+
+.app-frame .route-content select.vl-select:focus {
+  border-color: var(--vl-champagne);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(212, 181, 106, 0.16);
+}
+
+.app-frame .route-content select.vl-select:disabled {
+  background-color: var(--vl-ivory);
+  color: var(--vl-text-secondary);
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .app-frame .route-content select.vl-select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+.vl-select-field.mat-mdc-form-field {
+  display: block;
+  width: 100%;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.vl-select-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+.vl-select-field .mat-mdc-text-field-wrapper {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--vl-white);
+}
+
+.vl-select-field .mat-mdc-form-field-flex {
+  min-height: 44px;
+  align-items: center;
+}
+
+.vl-select-field .mat-mdc-form-field-infix {
+  min-height: 44px;
+  width: auto;
+  padding: 10px 0;
+}
+
+.vl-select-field .mdc-notched-outline__leading,
+.vl-select-field .mdc-notched-outline__notch,
+.vl-select-field .mdc-notched-outline__trailing {
+  border-color: var(--vl-border) !important;
+}
+
+.vl-select-field.mat-focused .mdc-notched-outline__leading,
+.vl-select-field.mat-focused .mdc-notched-outline__notch,
+.vl-select-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--vl-champagne) !important;
+  border-width: 1px !important;
+}
+
+.vl-select-field .mat-mdc-select-value,
+.vl-select-field .mat-mdc-select-placeholder,
+.vl-select-field .mat-mdc-select-arrow {
+  color: var(--vl-text-primary);
+}
+
+.vl-select-panel.mat-mdc-select-panel {
+  width: 100%;
+  max-height: min(288px, calc(100vh - 24px));
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--vl-border);
+  border-radius: 8px;
+  background: var(--vl-white);
+  box-shadow: 0 12px 32px rgba(11, 27, 51, 0.2);
+  overscroll-behavior: contain;
+}
+
+.vl-select-panel .mat-mdc-option {
+  min-height: 44px;
+  border-radius: 5px;
+  color: var(--vl-text-primary);
+  font: 500 0.9rem/1.3 'Inter', sans-serif;
+}
+
+.owner-page-intro {
+  margin: 0 0 22px;
+}
+
+.owner-page-intro .eyebrow {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--vl-text-secondary);
+  font: 800 0.7rem/1.3 'Inter', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.owner-page-intro h1 {
+  margin: 0;
+  color: var(--vl-navy);
+  font: 600 2rem/1.2 'Playfair Display', serif;
+}
+
+.route-content h1 {
+  color: var(--vl-navy) !important;
+  font-family: 'Playfair Display', serif !important;
+  font-size: 2rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0 !important;
+}
+
+.route-content > app-sheet-date > .shell {
+  width: min(calc(100% - 40px), 1180px) !important;
+  margin-inline: auto !important;
+}
+
+.vl-page-content {
+  width: min(calc(100% - 40px), var(--vl-page-content-max-width, 1180px)) !important;
+  max-width: var(--vl-page-content-max-width, 1180px) !important;
+  margin-inline: auto !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  box-sizing: border-box;
+}
+
+.vl-page-content--narrow {
+  --vl-page-content-max-width: 860px;
+}
+
+.vl-page-content--compact {
+  --vl-page-content-max-width: 760px;
+}
+
+.owner-page-intro p {
+  max-width: 640px;
+  margin: 8px 0 0;
+  color: var(--vl-text-secondary);
+  font: 400 0.94rem/1.55 'Inter', sans-serif;
+}
+
+.vl-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+.vl-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  background: var(--vl-champagne-light);
+  color: var(--vl-navy);
+}
+
+@media (max-width: 900px) {
+  .vl-page-content {
+    width: min(calc(100% - 28px), var(--vl-page-content-max-width, 1180px)) !important;
+  }
+  .route-content > app-sheet-date > .shell {
+    width: min(calc(100% - 28px), 1180px) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .vl-select-panel.mat-mdc-select-panel {
+    max-height: min(260px, calc(100dvh - 24px));
+  }
+
+  .vl-select-panel .mat-mdc-option {
+    min-height: 46px;
+  }
+}

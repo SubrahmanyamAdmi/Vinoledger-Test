@@ -17,11 +17,11 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  selectedRole: 'Admin' | 'Owner' | 'User' = 'Admin';
+  selectedRole: 'Admin' | 'Owner' | 'User' = 'Owner';
 
   loginForm: UntypedFormGroup = this.fb.group({
-    email: ['', [Validators.required]],
-    password: ['', [Validators.required]],
+    email: ['40', [Validators.required]],
+    password: ['40', [Validators.required]],
   });
 
   loading = false;
@@ -56,17 +56,11 @@ export class LoginComponent {
     this.auth.login({ email, password }).subscribe({
       next: () => {
         const role = this.auth.userRole() as UserRole | null;
-            const expectedRole = this.selectedRole === 'User' ? 'User' : this.selectedRole;
-            if (role !== expectedRole) {
-              this.auth.logout();
-              this.error = `These credentials belong to a ${role || 'different'} account. Select the matching role.`;
-              this.loading = false;
-              return;
-            }
         if (role === 'Admin') this.router.navigate(['/admin']);
         else if (role === 'Owner') this.router.navigate(['/owner']);
         else if (role === 'User') this.router.navigate(['/cashier-home']);
         else this.router.navigate(['/unauthorized']);
+        this.loading = false;
       },
       error: () => {
         this.loading = false;

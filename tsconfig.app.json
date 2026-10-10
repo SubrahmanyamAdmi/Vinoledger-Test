@@ -8,7 +8,9 @@
   "files": [
     "src/main.ts",
     "src/polyfills.ts",
-    "src/app/pages/owner-invoices/owner-invoices.component.ts"
+    "src/app/pages/owner-invoices/owner-invoices.component.ts",
+    "src/app/pages/manage-partners/manage-partners.component.ts",
+    "src/app/shared/app-header/app-header.component.ts"
   ],
   "include": [
     "src/**/*.d.ts"

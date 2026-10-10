@@ -1,113 +1,169 @@
 <div class="reports-shell">
-  <header class="topbar">
+  <header *ngIf="auth.currentUser()?.role !== 'Owner'" class="topbar">
     <div class="header-left">
-      <button type="button" class="back-btn" aria-label="Go back" (click)="goBack()">‹</button>
-      <h2>Owner Reports</h2>
+      <button type="button" class="app-back-btn" aria-label="Go back" (click)="goBack()">
+        <app-icon name="chevron-left"></app-icon>
+        <span>Back</span>
+      </button>
+      <h2>Reports</h2>
     </div>
-
-    <button class="logout-btn" type="button" (click)="logout()" aria-label="Logout">
-      <span>↪</span>
+    <button class="app-logout-btn" type="button" (click)="logout()" aria-label="Logout">
+      <app-icon name="logout"></app-icon>
+      <span>Logout</span>
     </button>
   </header>
 
-  <main class="content-wrap">
-    <section class="range-panel">
-      <label>Date Range</label>
-      <div class="date-row">
-        <label class="date-field">
-          <span class="calendar">🗓</span>
-          <input type="date" [(ngModel)]="startDate" [max]="today" (ngModelChange)="onStartDateChange()" />
-        </label>
+  <main class="content-wrap vl-page-content">
+    <section class="owner-page-intro">
+      <p class="eyebrow">Business performance</p>
+      <h1>Reports</h1>
+      <p>Review sales, stock, and profitability across a preset period or a custom date range.</p>
+    </section>
 
-        <label class="date-field">
-          <span class="calendar">🗓</span>
-          <input type="date" [(ngModel)]="endDate" [min]="startDate || null" [max]="today" (ngModelChange)="onEndDateChange()" />
-        </label>
+    <section class="period-panel">
+      <label>Period</label>
+      <div class="period-tabs" role="tablist">
+        <button
+          *ngFor="let item of periods"
+          type="button"
+          class="period-tab"
+          [class.active]="period === item"
+          (click)="setPeriod(item)"
+        >{{ item }}</button>
+      </div>
+
+      <div class="date-row" *ngIf="period === 'Custom'">
+        <div class="date-field">
+          <app-date-input [(ngModel)]="startDate" [min]="openingDate || null" [max]="today" (ngModelChange)="onStartDateChange()" ariaLabel="Start date" placeholder="From date"></app-date-input>
+        </div>
+
+        <div class="date-field">
+          <app-date-input [(ngModel)]="endDate" [min]="startDate || openingDate || null" [max]="today" (ngModelChange)="onEndDateChange()" ariaLabel="End date" placeholder="To date"></app-date-input>
+        </div>
       </div>
       <p class="date-error" *ngIf="dateError">{{ dateError }}</p>
     </section>
 
-    <section class="report-select">
-      <label>Select Report Type</label>
-      <select [(ngModel)]="reportType" (ngModelChange)="onReportTypeChange()">
-        <option value="">Select Report Type</option>
-        <option value="Sales Report">Sales Report</option>
-        <option value="Expense Report">Expense Report</option>
-        <option value="Stock Report">Stock Report</option>
-      </select>
-    </section>
-
-    <section class="summary-grid" *ngIf="reportReady && !dateError">
+    <section class="summary-grid">
       <div class="summary-card summary-light">
-        <span>{{ primaryLabel }}</span>
-        <strong>{{ reportType === 'Stock Report' ? '' : '₹' }}{{ primaryTotal | number:'1.2-2' }}</strong>
+        <span>Yesterday's Sales</span>
+        <strong>₹{{ yesterdaySales | number:'1.2-2' }}</strong>
       </div>
-
       <div class="summary-card summary-green">
-        <span>{{ secondaryLabel }}</span>
-        <strong>{{ reportType === 'Expense Report' || reportType === 'Stock Report' ? (secondaryTotal | number:'1.0-0') : '₹' + (secondaryTotal | number:'1.2-2') }}</strong>
+        <span>Yesterday's Bottles Sold</span>
+        <strong>{{ yesterdayBottlesSold | number:'1.0-0' }}</strong>
+      </div>
+      <div class="summary-card summary-light">
+        <span>Current Stock Value</span>
+        <strong>₹{{ currentStockValue | number:'1.2-2' }}</strong>
+      </div>
+      <div class="summary-card summary-warn">
+        <span>Low Stock Items</span>
+        <strong>{{ lowStockCount }}</strong>
+      </div>
+      <div class="summary-card summary-green">
+        <span>Monthly Sales</span>
+        <strong>₹{{ monthlySales | number:'1.2-2' }}</strong>
+      </div>
+      <div class="summary-card summary-light">
+        <span>Monthly Profit</span>
+        <strong>₹{{ monthlyProfit | number:'1.2-2' }}</strong>
       </div>
     </section>
 
-    <section class="chart-panel" *ngIf="reportReady && !dateError">
+    <section class="chart-panel">
       <div class="panel-header">
-        <h3>{{ reportType }} Analysis</h3>
+        <h3>Sales Trend</h3>
         <span class="mini-icon">↗</span>
       </div>
 
-      <div class="bar-chart" aria-label="Weekly sales distribution">
-        <div class="bar-group" *ngFor="let value of weeklyBars; let i = index">
-          <span class="bar" [style.height.%]="value"></span>
-          <small>{{ weeks[i] }}</small>
+      <div class="line-chart" *ngIf="trendDots.length; else noTrend">
+        <svg [attr.viewBox]="trendViewBox" preserveAspectRatio="none" aria-label="Sales trend chart">
+          <line *ngFor="let axis of trendYAxis" class="grid-line" x1="56" [attr.x2]="640 - 16" [attr.y1]="axis.y" [attr.y2]="axis.y"></line>
+          <polyline class="trend-line" [attr.points]="trendPoints"></polyline>
+          <circle *ngFor="let dot of trendDots" class="trend-dot" [attr.cx]="dot.x" [attr.cy]="dot.y" r="4">
+            <title>₹{{ dot.value | number:'1.0-0' }}</title>
+          </circle>
+        </svg>
+        <div class="y-axis-labels">
+          <span *ngFor="let axis of trendYAxis" [style.top.%]="(axis.y / 220) * 100">{{ axis.label }}</span>
+        </div>
+        <div class="x-axis-labels">
+          <span *ngFor="let item of trendLabelX">{{ item.label }}</span>
         </div>
       </div>
+      <ng-template #noTrend><p class="empty-note">No sales submitted for this period yet.</p></ng-template>
 
       <div class="current-month">
         <span class="dot"></span>
-        <span>{{ reportType === 'Expense Report' ? 'Expenses by submitted date' : reportType === 'Stock Report' ? 'Closing bottles by submitted date' : 'Sales by submitted date' }}</span>
+        <span>{{ trendCaption }}</span>
       </div>
     </section>
 
-    <section class="donut-panel" *ngIf="reportReady && !dateError">
-      <h3>{{ reportType === 'Expense Report' ? 'Expenses by Day Sheet' : reportType === 'Stock Report' ? 'Stock by Brand Category' : 'Sales by Category' }}</h3>
-
-      <div class="donut-layout">
-        <div class="donut-chart" aria-label="Sales by category chart">
-          <div class="donut-hole"></div>
+    <section class="split-grid">
+      <div class="top-brands-panel">
+        <h3>Top Brands</h3>
+        <div class="brand-bars" *ngIf="topBrands.length; else noBrands">
+          <div class="brand-bar-row" *ngFor="let brand of topBrands">
+            <span class="brand-name">{{ brand.label }}</span>
+            <div class="brand-bar-track">
+              <span class="brand-bar-fill" [style.width.%]="brand.pct" [style.background]="brand.color"></span>
+            </div>
+            <span class="brand-meta">{{ brand.bottles | number:'1.0-0' }} btl · ₹{{ brand.sales | number:'1.0-0' }}</span>
+          </div>
         </div>
+        <ng-template #noBrands><p class="empty-note">No brand sales for this period yet.</p></ng-template>
+      </div>
 
-        <ul class="legend-list">
-          <li *ngFor="let item of categoryData">
-            <span class="legend-dot" [style.background]="item.color"></span>
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}%</strong>
-          </li>
+      <div class="stock-status-panel">
+        <h3>Stock Status</h3>
+        <ul class="stock-status-list">
+          <li><span class="status-dot in"></span>In Stock<strong>{{ inStockCount }}</strong></li>
+          <li><span class="status-dot low"></span>Low Stock<strong>{{ lowStockCount }}</strong></li>
+          <li><span class="status-dot out"></span>Out of Stock<strong>{{ outOfStockCount }}</strong></li>
         </ul>
       </div>
     </section>
 
-    <button class="download-btn" type="button" *ngIf="reportReady && !dateError" (click)="downloadReport()">
+    <section class="stock-table-panel">
+      <h3>Brand-wise Stock Details<small *ngIf="stockDate"> (as of {{ stockDate }})</small></h3>
+      <div class="table-scroll" *ngIf="stockRows.length; else noStock">
+        <table class="stock-table">
+          <thead>
+            <tr>
+              <th>Brand</th>
+              <th>Size</th>
+              <th>Opening</th>
+              <th>Sold</th>
+              <th>Closing</th>
+              <th>Sales ₹</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of stockRows">
+              <td>{{ row.brand }}</td>
+              <td>{{ row.size }}</td>
+              <td>{{ row.opening }}</td>
+              <td>{{ row.sold }}</td>
+              <td>{{ row.closing }}</td>
+              <td>₹{{ row.salesAmount | number:'1.2-2' }}</td>
+              <td>
+                <span class="status-pill" [class.in]="row.status === 'in'" [class.low]="row.status === 'low'" [class.out]="row.status === 'out'">
+                  {{ row.status === 'in' ? 'In Stock' : row.status === 'low' ? 'Low Stock' : 'Out of Stock' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noStock><p class="empty-note">No day sheet submitted yet to show stock details.</p></ng-template>
+    </section>
+
+    <button class="download-btn" type="button" (click)="downloadReport()">
       <span class="download-icon">⬇</span>
-      Download PDF Report
+      Download Report (CSV)
     </button>
   </main>
 
-  <nav class="bottom-nav" aria-label="Main navigation">
-    <button class="nav-item active" type="button">
-      <span class="icon">⌂</span>
-      <span>Home</span>
-    </button>
-    <button class="nav-item" type="button">
-      <span class="icon">▣</span>
-      <span>Stock</span>
-    </button>
-    <button class="nav-item" type="button">
-      <span class="icon">▤</span>
-      <span>Reports</span>
-    </button>
-    <button class="nav-item" type="button">
-      <span class="icon">⚙</span>
-      <span>Settings</span>
-    </button>
-  </nav>
 </div>

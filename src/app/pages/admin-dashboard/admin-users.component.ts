@@ -2,13 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../services/auth.service';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './admin-users.component.html',
-  styleUrls: ['./admin-users.component.scss']
+  styleUrls: ['./admin-users.component.scss', './admin-page-theme.scss']
 })
 export class AdminUsersComponent implements OnInit {
   users = [
@@ -25,7 +27,7 @@ export class AdminUsersComponent implements OnInit {
 
   totalUsers = this.users.length;
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, public auth: AuthService) {}
 
   ngOnInit() {}
 

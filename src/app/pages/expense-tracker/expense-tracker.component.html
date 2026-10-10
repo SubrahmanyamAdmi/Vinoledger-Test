@@ -1,26 +1,71 @@
-<app-topbar></app-topbar>
-<app-sidenav>
-  <div class="page-content">
-    <h2>Expenses</h2>
+<app-topbar *ngIf="auth.currentUser()?.role !== 'Owner'"></app-topbar>
+<div class="page-content vl-page-content">
+  <div class="report-heading">
+    <div>
+      <span class="eyebrow">OWNER REPORT</span>
+      <h1>Expenses</h1>
+      <p>Shop: {{ shopId || shopName }}</p>
+    </div>
+    <label class="month-picker">Month
+      <app-select ariaLabel="Select report month" [options]="monthSelectOptions" [(ngModel)]="selectedMonth" (ngModelChange)="refreshReport()"></app-select>
+    </label>
+  </div>
 
-    <div *ngIf="expenses?.length; else loading">
-      <table class="expenses-table">
-        <thead>
-          <tr><th>ID</th><th>Date</th><th>Amount</th><th>Note</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let ex of expenses">
-            <td>{{ex.id}}</td>
-            <td>{{ex.date | date:'short'}}</td>
-            <td>{{ex.amount}}</td>
-            <td>{{ex.note}}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="metrics-grid">
+      <div class="metric"><span>Total Expenses</span><strong>{{ formatCurrency(totalExpenses) }}</strong></div>
+      <div class="metric"><span>This Month</span><strong>{{ formatCurrency(totalExpenses) }}</strong></div>
+      <div class="metric"><span>Daily Average</span><strong>{{ formatCurrency(dailyAverage) }}</strong></div>
+      <div class="metric"><span>Highest Day</span><strong>{{ formatCurrency(highestDaily) }}</strong></div>
     </div>
 
-    <ng-template #loading>
-      <p>Loading expenses...</p>
-    </ng-template>
+    <div class="report-grid">
+      <section class="report-panel distribution-panel">
+        <div class="panel-title"><h2>Expense Distribution</h2><span>{{ categoryTotals.length }} categories</span></div>
+        <div class="distribution-row" *ngFor="let item of categoryTotals">
+          <span class="distribution-label">{{ item.category }}</span>
+          <div class="distribution-track"><span [style.width]="categoryWidth(item.amount)"></span></div>
+          <strong>{{ formatCurrency(item.amount) }}</strong>
+        </div>
+        <p class="empty-note" *ngIf="!categoryTotals.length">No expenses recorded for this month.</p>
+      </section>
+
+      <section class="report-panel trend-panel">
+        <div class="panel-title"><h2>Expense Trend</h2><span>{{ monthLabel(selectedMonth) }}</span></div>
+        <div class="trend-list">
+          <div *ngFor="let item of dailyEntries" class="trend-row">
+            <span>{{ item.date | date:'dd MMM' }}</span><i [style.width]="categoryWidth(item.amount)"></i><strong>{{ formatCurrency(item.amount) }}</strong>
+          </div>
+        </div>
+        <p class="empty-note" *ngIf="!dailyEntries.length">No daily expense data available.</p>
+      </section>
+    </div>
+
+    <section class="report-panel full-panel">
+      <div class="panel-title"><h2>Category-wise Report</h2><span>{{ monthLabel(selectedMonth) }}</span></div>
+      <table class="report-table">
+        <thead><tr><th>Expense Category</th><th>Amount</th><th>%</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let item of categoryTotals"><td>{{ item.category }}</td><td>{{ formatCurrency(item.amount) }}</td><td>{{ item.percentage | number:'1.1-1' }}%</td></tr>
+          <tr class="total-row"><td>TOTAL</td><td>{{ formatCurrency(totalExpenses) }}</td><td>100%</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="report-panel full-panel">
+      <div class="panel-title"><h2>Daily Expense Report</h2><span>{{ dailyEntries.length }} entries</span></div>
+      <table class="report-table">
+        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+        <tbody><tr *ngFor="let item of dailyEntries"><td>{{ item.date | date:'dd MMM' }}</td><td>{{ item.category }}</td><td>{{ item.description }}</td><td>{{ formatCurrency(item.amount) }}</td></tr></tbody>
+      </table>
+      <p class="empty-note" *ngIf="!dailyEntries.length">No daily expense data available.</p>
+    </section>
+
+    <section class="report-panel full-panel">
+      <div class="panel-title"><h2>Expense Comparison</h2><span>{{ monthLabel(selectedMonth) }} vs previous year</span></div>
+      <table class="report-table">
+        <thead><tr><th>Category</th><th>{{ monthLabel(selectedMonth) }}</th><th>{{ previousYearLabel }}</th></tr></thead>
+        <tbody><tr *ngFor="let item of comparison"><td>{{ item.category }}</td><td>{{ formatCurrency(item.current) }}</td><td>{{ formatCurrency(item.previous) }}</td></tr><tr class="total-row"><td>TOTAL</td><td>{{ formatCurrency(totalExpenses) }}</td><td>{{ formatCurrency(previousTotal) }}</td></tr></tbody>
+      </table>
+    </section>
+
   </div>
-</app-sidenav>

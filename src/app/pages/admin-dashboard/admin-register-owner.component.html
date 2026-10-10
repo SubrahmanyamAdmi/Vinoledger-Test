@@ -1,21 +1,24 @@
-<div class="registration-shell">
+<div class="registration-shell vl-page-content">
   <header class="page-header">
     <div>
       <p class="eyebrow">Shop administration</p>
       <h1>Register New Owner</h1>
       <p class="subtitle">Create the shop account, owner access and as many cashier logins as needed.</p>
     </div>
-    <button type="button" class="secondary-btn" (click)="goBack()">Back to dashboard</button>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to dashboard</span>
+    </button>
   </header>
 
   <form *ngIf="!credentials.length" (ngSubmit)="register()" #registrationForm="ngForm">
     <section class="form-section">
       <div class="section-heading"><span>01</span><div><h2>Shop details</h2><p>The shop ID becomes the basis for every generated login.</p></div></div>
       <div class="field-grid">
-        <label>Shop name<input name="shopName" [(ngModel)]="shopName" required placeholder="e.g. Manson House" /></label>
+        <label>Shop name<input name="shopName" [(ngModel)]="shopName" required placeholder="e.g. Store name" /></label>
         <label>Shop ID<input name="shopId" [(ngModel)]="shopId" required placeholder="e.g. KKD42" /></label>
         <label>Shop location<input name="shopLocation" [(ngModel)]="shopLocation" required placeholder="City or branch location" /></label>
-        <label>Shop open date<input name="shopOpenDate" type="date" [max]="today" [(ngModel)]="shopOpenDate" required /></label>
+        <label>Shop open date<app-date-input name="shopOpenDate" [max]="today" [useShopOpeningDate]="false" [(ngModel)]="shopOpenDate" ariaLabel="Shop open date"></app-date-input></label>
       </div>
     </section>
 

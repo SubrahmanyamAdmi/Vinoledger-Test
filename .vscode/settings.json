@@ -1,0 +1,19 @@
+{
+  "files.watcherExclude": {
+    "**/.angular/**": true,
+    "**/dist/**": true,
+    "**/out-tsc/**": true,
+    "**/node_modules/**": true
+  },
+  "files.exclude": {
+    "**/.angular": true,
+    "**/dist": true,
+    "**/out-tsc": true
+  },
+  "search.exclude": {
+    "**/.angular/**": true,
+    "**/dist/**": true,
+    "**/out-tsc/**": true,
+    "**/node_modules/**": true
+  }
+}

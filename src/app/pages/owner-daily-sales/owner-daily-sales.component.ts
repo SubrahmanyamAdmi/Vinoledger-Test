@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
+import { IconComponent } from '../../shared/icon/icon.component';
+import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
 
 @Component({
   selector: 'app-owner-daily-sales',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent, AppDateInputComponent],
   templateUrl: './owner-daily-sales.component.html',
   styleUrls: ['./owner-daily-sales.component.scss']
 })
@@ -19,7 +21,7 @@ export class OwnerDailySalesComponent {
   dateError = '';
   rangeSelected = false;
   private submissions: any[] = [];
-  shop = { name: 'Shop', id: '' };
+  shop = { name: 'Shop', id: '', openingDate: '' };
   ownerName = 'Shop Owner';
   salesRows: Array<{ no: number; date: string; invoice: string; amount: number; expense: number; submission: any }> = [];
 
@@ -33,8 +35,9 @@ export class OwnerDailySalesComponent {
     const registeredShop = this.auth.getRegisteredShops().find((item) => item.shopId === user?.shopId);
     this.ownerName = registeredShop?.ownerName || user?.name || sessionShop.owner || 'Shop Owner';
     this.shop = {
-      name: registeredShop?.name || (registeredShop?.shopId === 'MH2094' ? 'Manson House' : registeredShop?.shopId) || sessionShop.name || 'Shop',
-      id: user?.shopId || registeredShop?.shopId || sessionShop.id || ''
+      name: registeredShop?.name || registeredShop?.shopId || sessionShop.name || 'Shop',
+      id: user?.shopId || registeredShop?.shopId || sessionShop.id || '',
+      openingDate: String(registeredShop?.openingDate || registeredShop?.createdAt || sessionShop.openingDate || '').slice(0, 10)
     };
     this.businessData.getDaySheets().subscribe({
       next: (submissions) => this.submissions = submissions.length ? submissions : this.loadSubmissions(),
@@ -118,11 +121,11 @@ export class OwnerDailySalesComponent {
       ['Submitted At', submission.submittedAt || ''], ['Submitted Amount', String(submission.submittedAmount || 0)], [],
       ['SUMMARY'], ['Total Sales', String(submission.totalDaySale || 0)], ['Total Expenses', String(submission.totalExpenses || 0)],
       ['Additional Profit', String(submission.additionalProfit || 0)], ['Grand Total', String(submission.grandTotal || 0)], [],
-      ['STOCK / SALES DETAILS'], ['Brand', 'Code', 'Size', 'Opening', 'Closing', 'Price', 'Amount', 'Difference', 'Remarks']
+      ['STOCK / SALES DETAILS'], ['Brand', 'Code', 'Size', 'Opening', 'Closing', 'Sales', 'Price', 'Amount']
     ];
     (submission.records || []).forEach((record: any) => (record.sizes || []).forEach((size: any) => rows.push([
       record.brand || '', record.code || '', size.size || '', String(size.opening || 0), String(size.closing || 0),
-      String(size.price || 0), String(size.amount || 0), String(record.difference || 0), record.remarks || ''
+      String(size.sales || 0), String(size.price || 0), String(size.amount || 0)
     ])));
     rows.push([], ['EXPENSE DETAILS'], ['Expense', 'Value', 'Comment']);
     (submission.expenses || []).forEach((item: any) => rows.push([item.name || '', String(item.value || 0), item.comment || '']));
@@ -145,7 +148,7 @@ export class OwnerDailySalesComponent {
     URL.revokeObjectURL(link.href);
   }
 
-  private readSessionShop(): { id?: string; name?: string; owner?: string } {
+  private readSessionShop(): { id?: string; name?: string; owner?: string; openingDate?: string; createdAt?: string } {
     try { return JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{}'); } catch { return {}; }
   }
 

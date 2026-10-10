@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { IconComponent } from '../../shared/icon/icon.component';
 
 @Component({
   selector: 'app-profile-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './profile-settings.component.html',
   styleUrls: ['./profile-settings.component.scss']
 })
@@ -72,8 +73,31 @@ export class ProfileSettingsComponent {
     this.message = '';
   }
 
+  get dashboardLabel(): string {
+    const role = this.auth.currentUser()?.role;
+    if (role === 'Admin') return 'Admin Dashboard';
+    if (role === 'Owner') return 'Owner Dashboard';
+    return 'Cashier Dashboard';
+  }
+
+  get accountLabel(): string {
+    const role = this.auth.currentUser()?.role;
+    if (role === 'Admin') return 'admin';
+    if (role === 'Owner') return 'owner';
+    return 'cashier';
+  }
+
   goBack() {
-    this.router.navigate(['/owner']);
+    const role = this.auth.currentUser()?.role;
+    if (role === 'Admin') {
+      this.router.navigate(['/admin']);
+      return;
+    }
+    if (role === 'Owner') {
+      this.router.navigate(['/owner']);
+      return;
+    }
+    this.router.navigate(['/cashier-home']);
   }
 
   logout() {

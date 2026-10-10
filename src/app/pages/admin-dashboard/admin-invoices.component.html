@@ -1,29 +1,24 @@
-<div class="invoices-container">
-  <header class="header">
+<div class="invoices-container vl-page-content">
+  <section class="page-intro">
     <div class="user-info">
-      <span class="user-role">Cashier: {{ selectedCustomer?.name || 'Rajesh Kumar' }}</span>
-      <span class="user-label">Cashier Role</span>
+      <h1>Invoice Administration</h1>
+      <span class="user-label">Shop invoice records</span>
     </div>
-    <button class="logout-btn">← Logout</button>
-  </header>
+  </section>
 
   <div class="customer-selection">
-    <h2>Customer Invoices</h2>
+          <h2>Customer Invoices</h2>
     
     <div class="form-group">
       <label for="customer-select">Select Customer</label>
-      <div class="select-wrapper">
-        <select 
-          id="customer-select" 
-          [(ngModel)]="selectedCustomerId" 
-          (change)="selectCustomer()"
-          class="form-control">
-          <option value="">Choose a customer</option>
-          <option *ngFor="let customer of customers" [value]="customer.id">
-            {{ customer.name }} - {{ customer.shopId }}
-          </option>
-        </select>
-      </div>
+      <app-select
+        id="customer-select"
+        ariaLabel="Select customer shop"
+        placeholder="Choose a customer"
+        [options]="customerOptions"
+        [(ngModel)]="selectedCustomerId"
+        (ngModelChange)="selectCustomer()"
+      ></app-select>
     </div>
 
     <div *ngIf="selectedCustomer" class="add-invoice-section">
@@ -37,7 +32,7 @@
     <div class="form-grid">
       <div class="form-group">
         <label>Date</label>
-        <input type="date" [(ngModel)]="newInvoice.date" class="form-control">
+        <app-date-input [(ngModel)]="newInvoice.date" [min]="selectedCustomer.openingDate || null" ariaLabel="Invoice date"></app-date-input>
       </div>
       <div class="form-group">
         <label>Reference No.</label>
@@ -79,11 +74,14 @@
               <div class="date">{{ invoice.date }}</div>
               <div class="ref">{{ invoice.referenceNo }}</div>
             </td>
-            <td class="amount">${{ invoice.amount | number: '1.2-2' }}</td>
+            <td class="amount">₹{{ invoice.amount | number: '1.2-2' }}</td>
             <td class="actions">
-              <button class="action-btn view-btn" (click)="viewInvoice(invoice.id)" title="View Invoice">👁️</button>
-              <button class="action-btn download-btn" (click)="downloadInvoice(invoice.id)" title="Download Invoice">⬇️</button>
+              <button class="action-btn view-btn" type="button" (click)="viewInvoice(invoice.id)" title="View Invoice" aria-label="View Invoice"><app-icon name="file"></app-icon></button>
+              <button class="action-btn download-btn" type="button" (click)="downloadInvoice(invoice.id)" title="Download Invoice" aria-label="Download Invoice"><app-icon name="download"></app-icon></button>
             </td>
+          </tr>
+          <tr *ngIf="!invoices.length">
+            <td class="empty-invoices" colspan="4">No invoices found for this shop.</td>
           </tr>
         </tbody>
       </table>
@@ -94,13 +92,16 @@
         <span class="label">TOTAL INVOICES</span>
         <div class="footer-stats">
           <span class="count">{{ invoices.length }} Records</span>
-          <span class="total-amount">Total Amount: ${{ totalAmount | number: '1.2-2' }}</span>
+              <span class="total-amount">Total Amount: ₹{{ totalAmount | number: '1.2-2' }}</span>
         </div>
       </div>
     </footer>
   </div>
 
   <div class="back-button">
-    <button class="back-btn" (click)="goBack()">← Back to Dashboard</button>
+    <button type="button" class="app-back-btn" (click)="goBack()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>Back to Dashboard</span>
+    </button>
   </div>
 </div>

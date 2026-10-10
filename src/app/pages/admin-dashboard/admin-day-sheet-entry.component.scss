@@ -145,6 +145,27 @@ h1 {
   }
 }
 
+.page-loader {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: #66716b;
+}
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid #d8e1dc;
+  border-top-color: #254f43;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .actions {
   display: flex;
   gap: 14px;

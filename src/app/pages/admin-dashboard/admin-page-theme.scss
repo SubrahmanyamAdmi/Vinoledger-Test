@@ -1,0 +1,366 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--vl-ivory);
+  color: var(--vl-text-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--vl-navy);
+  font-family: 'Playfair Display', serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: 'Inter', sans-serif;
+}
+
+input,
+select,
+textarea,
+.form-control {
+  border-color: var(--vl-border);
+  border-radius: 6px;
+  color: var(--vl-text-primary);
+}
+
+.registration-shell select,
+.invoices-container select,
+.sheet-shell select,
+.day-sheet-container select,
+.mrp-shell select {
+  min-height: 44px;
+  border: 1px solid var(--vl-border);
+  border-radius: 6px;
+  background-color: var(--vl-white);
+  color: var(--vl-text-primary);
+  font-family: 'Inter', sans-serif;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.form-control:focus {
+  border-color: var(--vl-champagne);
+  outline-color: rgba(212, 181, 106, 0.3);
+  box-shadow: 0 0 0 3px rgba(212, 181, 106, 0.14);
+}
+
+.form-section,
+.feature-box,
+.panel,
+.content,
+.customer-selection,
+.add-form,
+.invoices-section,
+.search-panel,
+.table-panel,
+.calendar-card,
+.selected-date-panel,
+.management-panel,
+.table-wrapper {
+  border-color: var(--vl-border);
+  border-radius: 8px;
+  background-color: var(--vl-white);
+  box-shadow: var(--vl-shadow);
+}
+
+.page-header h1,
+.users-header h1,
+.header h1 {
+  color: var(--vl-navy);
+}
+
+.topbar,
+.header-profile {
+  background-color: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.topbar .brand-mark,
+.mark {
+  background: var(--vl-champagne);
+  color: var(--vl-navy);
+}
+
+.topbar .title-block span,
+.profile-label {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.table-wrapper,
+.table-wrap,
+.table-scroll {
+  overflow-x: auto;
+}
+
+.customers-table thead,
+.users-table thead,
+.invoices-table thead,
+.report-table thead {
+  background: var(--vl-navy);
+}
+
+.customers-table th,
+.users-table th,
+.invoices-table th,
+.report-table th {
+  background: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.customers-table td,
+.users-table td,
+.invoices-table td,
+.report-table td {
+  border-color: var(--vl-border);
+  color: var(--vl-text-primary);
+}
+
+.primary-btn,
+.primary,
+.btn-primary,
+.btn-submit,
+.add-btn {
+  border-color: var(--vl-navy);
+  background: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.primary-btn:hover,
+.primary:hover,
+.btn-primary:hover,
+.btn-submit:hover,
+.add-btn:hover {
+  background: var(--vl-navy-light);
+}
+
+.secondary-btn,
+.btn-secondary,
+.btn-cancel {
+  border-color: var(--vl-border);
+  background: var(--vl-white);
+  color: var(--vl-navy);
+}
+
+.eyebrow,
+.section-heading > span {
+  color: var(--vl-warning);
+}
+
+@media (max-width: 900px) {
+  .registration-shell,
+  .customers-container,
+  .users-container,
+  .day-sheet-container,
+  .content-wrap,
+  .sheet-shell {
+    padding-bottom: 104px;
+  }
+
+  .table-wrapper,
+  .table-wrap,
+  .table-scroll {
+    max-width: 100%;
+  }
+}
+
+.mrp-shell .topbar,
+.sheet-shell .topbar {
+  border: 0;
+  border-radius: 0;
+  background: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.mrp-shell .brand-mark,
+.sheet-shell .mark {
+  border-radius: 10px;
+  background: var(--vl-champagne);
+  color: var(--vl-navy);
+}
+
+.mrp-shell .user-role,
+.sheet-shell .title-block span { color: var(--vl-champagne); }
+
+.mrp-shell .content-wrap,
+.sheet-shell .content {
+  color: var(--vl-text-primary);
+}
+
+.mrp-shell .search-panel,
+.mrp-shell .new-brand-form,
+.mrp-shell .table-panel,
+.sheet-shell .identity,
+.sheet-shell .panel {
+  border-color: var(--vl-border);
+  border-radius: 8px;
+  background: var(--vl-white);
+}
+
+.mrp-shell .table-header {
+  background: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.mrp-shell .table-row {
+  border-color: var(--vl-border);
+  background: var(--vl-white);
+  color: var(--vl-text-primary);
+}
+
+.mrp-shell .table-row:hover { background: rgba(212, 181, 106, 0.08); }
+.mrp-shell .search-panel .action-row label.import-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  width: fit-content;
+  margin: 0;
+  border-color: var(--vl-navy);
+  background: var(--vl-navy);
+  color: var(--vl-white);
+  font: 700 0.84rem 'Inter', sans-serif;
+  line-height: 1.2;
+}
+
+.mrp-shell .search-panel .action-row label.import-btn:hover { background: var(--vl-navy-light); }
+.mrp-shell .action-btn.primary { border-color: var(--vl-navy); background: var(--vl-navy); }
+.mrp-shell .action-btn.secondary { border-color: var(--vl-border); background: var(--vl-white); color: var(--vl-navy); }
+.sheet-shell .outline { border-color: var(--vl-navy); color: var(--vl-navy); }
+.sheet-shell .primary { border: 1px solid var(--vl-navy); background: var(--vl-navy); color: var(--vl-white); }
+
+.day-sheet-container .header {
+  border-bottom-color: var(--vl-border);
+}
+
+.day-sheet-container .header h1 {
+  color: var(--vl-navy);
+  font-family: 'Playfair Display', serif;
+}
+
+.day-sheet-container .management-panel,
+.day-sheet-container .calendar-card,
+.day-sheet-container .selected-date-panel,
+.day-sheet-container .day-sheet-report {
+  border-color: var(--vl-border);
+  border-radius: 8px;
+  background: var(--vl-white);
+  box-shadow: var(--vl-shadow);
+}
+
+.day-sheet-container .summary-box.highlight {
+  border-color: rgba(212, 181, 106, 0.48);
+  background: var(--vl-champagne-light);
+}
+
+.day-sheet-container .report-header,
+.invoices-container .invoice-footer {
+  background: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.invoices-container .header {
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--vl-navy);
+  color: var(--vl-white);
+}
+
+.invoices-container .user-role { color: var(--vl-white); }
+.invoices-container .user-label { color: var(--vl-champagne); }
+.invoices-container .customer-selection,
+.invoices-container .add-form,
+.invoices-container .invoices-section { border-color: var(--vl-border); }
+.invoices-container .customer-selection .add-invoice-section .add-invoice-btn,
+.invoices-container .add-form .form-actions .btn-submit { background: var(--vl-navy); color: var(--vl-white); }
+.invoices-container .btn-cancel { border-color: var(--vl-border); color: var(--vl-navy); }
+.invoices-container .invoice-footer { border-radius: 8px; }
+.invoices-container .customer-selection .form-group label,
+.invoices-container .add-form .form-group label { color: var(--vl-text-secondary); }
+.invoices-container .invoices-table thead { background: var(--vl-navy); border-color: var(--vl-border); }
+.invoices-container .invoices-table thead th { background: var(--vl-navy); color: var(--vl-white); }
+.invoices-container .invoices-table tbody tr { border-color: var(--vl-border); }
+.invoices-container .invoices-table tbody tr:hover { background: rgba(212, 181, 106, 0.08); }
+.invoices-container .invoices-table tbody td { color: var(--vl-text-primary); }
+.invoices-container .actions .action-btn { min-width: 40px; min-height: 40px; color: var(--vl-navy); }
+.invoices-container .actions .action-btn app-icon { width: 18px; height: 18px; }
+
+.registration-shell .form-section,
+.registration-shell .success-panel {
+  border-color: var(--vl-border);
+  border-radius: 8px;
+  background: var(--vl-white);
+}
+
+.registration-shell .cashier-card,
+.registration-shell .credential-card { background: var(--vl-ivory); }
+.registration-shell .success-panel { border-top-color: var(--vl-champagne); }
+.registration-shell .role-label { color: var(--vl-warning); }
+.registration-shell .success-mark { background: var(--vl-champagne-light); color: var(--vl-navy); }
+
+.day-sheet-container .calendar-header,
+.day-sheet-container .report-header { background-color: var(--vl-navy); color: var(--vl-white); }
+.day-sheet-container .calendar-header button { color: var(--vl-champagne); }
+.day-sheet-container .info-box { border-color: var(--vl-border); background: var(--vl-champagne-light); }
+.day-sheet-container .action-buttons .btn-primary { background: var(--vl-navy); color: var(--vl-white); }
+.day-sheet-container .action-buttons .btn-secondary { border-color: var(--vl-border); background: var(--vl-white); color: var(--vl-navy); }
+.day-sheet-container .calendar-card .selected,
+.day-sheet-container .calendar-card .clickable:hover { background: var(--vl-champagne-light); color: var(--vl-navy); }
+
+.mrp-shell .search-panel label,
+.mrp-shell .new-brand-grid label { color: var(--vl-text-primary); }
+.mrp-shell .search-panel input,
+.mrp-shell .search-panel select,
+.mrp-shell .new-brand-grid input { border-color: var(--vl-border); background: var(--vl-white); }
+.mrp-shell .table-panel { overflow: hidden; }
+.mrp-shell .table-row.shop-mrp-changed { background: rgba(185, 74, 72, 0.06); box-shadow: inset 4px 0 0 var(--vl-danger); }
+.mrp-shell .table-row.shop-mrp-changed .mrp-cell { color: var(--vl-danger); }
+.mrp-shell .action-btn.tertiary { border-color: var(--vl-champagne); background: var(--vl-champagne-light); color: var(--vl-navy); }
+
+.sheet-shell .identity { border-color: var(--vl-border); }
+.sheet-shell .identity small { color: var(--vl-text-secondary); }
+.sheet-shell .panel label { color: var(--vl-text-primary); }
+.sheet-shell .panel p { color: var(--vl-text-secondary); }
+.sheet-shell .panel select.form-control {
+  min-height: 44px;
+  border-color: var(--vl-border);
+  border-radius: 6px;
+  background-color: var(--vl-white);
+  color: var(--vl-text-primary);
+}
+.invoices-container .customer-selection .form-group select.form-control {
+  min-height: 44px;
+  border-color: var(--vl-border);
+  border-radius: 6px;
+  background-color: var(--vl-white);
+  color: var(--vl-text-primary);
+}
+
+.header-profile .profile-info .profile-name { color: var(--vl-white); }
+.header-profile .profile-info .profile-label { color: rgba(255, 255, 255, 0.68); }
+.report-header h2 { color: var(--vl-white); }
+.report-meta,
+.report-label { color: rgba(255, 255, 255, 0.76); }
+.empty-state-dialog { border-color: var(--vl-border); background: var(--vl-white); }
+.empty-state-dialog h2 { color: var(--vl-navy); }
+.empty-state-button { background: var(--vl-navy); }
+.confirm-delete-button { background: var(--vl-danger); }
+
+@media (max-width: 760px) {
+  .invoices-container,
+  .sheet-shell,
+  .day-sheet-container,
+  .placeholder-container {
+    padding-bottom: 104px;
+  }
+
+  .invoices-container .header { align-items: flex-start; }
+  .invoices-container .invoice-footer .footer-content,
+  .invoices-container .invoice-footer .footer-stats { align-items: flex-start; flex-direction: column; gap: 8px; }
+}

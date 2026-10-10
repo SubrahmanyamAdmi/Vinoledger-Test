@@ -1,18 +1,10 @@
 <div class="profile-shell">
-  <header class="topbar">
-    <div class="brand-block">
-      <div class="brand-mark">VS</div>
-      <div class="brand-copy">
-        <span class="owner-name">{{ auth.currentUser()?.name || 'Shop Owner' }}</span>
-        <span class="owner-role">Owner Dashboard</span>
-      </div>
-    </div>
-    <button class="logout-btn" type="button" (click)="logout()" aria-label="Logout">↪</button>
-  </header>
-
-  <main class="content-wrap">
+  <main class="content-wrap vl-page-content">
     <div class="title-row">
-      <button class="back-btn" type="button" (click)="goBack()" aria-label="Back to dashboard">←</button>
+      <button *ngIf="auth.currentUser()?.role !== 'Owner'" class="app-back-btn" type="button" (click)="goBack()" aria-label="Back to dashboard">
+        <app-icon name="chevron-left"></app-icon>
+        <span>Back</span>
+      </button>
       <div>
         <h1>Profile</h1>
         <p class="subtitle">Your account information and security</p>
@@ -24,6 +16,7 @@
       <div class="profile-details">
         <div><span>Name</span><strong>{{ auth.currentUser()?.name || 'Shop Owner' }}</strong></div>
         <div><span>Email</span><strong>{{ auth.currentUser()?.email }}</strong></div>
+        <div><span>Contact</span><strong>{{ auth.currentUser()?.contactNumber || 'Not provided' }}</strong></div>
         <div><span>Role</span><strong>{{ auth.currentUser()?.role }}</strong></div>
       </div>
     </section>
@@ -31,7 +24,7 @@
     <section class="security-card">
       <div>
         <h2>Password &amp; Security</h2>
-        <p>Keep your owner account secure with a new password.</p>
+        <p>Keep your {{ accountLabel }} account secure with a new password.</p>
       </div>
       <button class="update-btn" type="button" (click)="openPasswordConfirmation()">Change Password</button>
     </section>

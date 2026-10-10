@@ -54,25 +54,30 @@ export class AuthService {
     private router: Router,
     private userService: UserService
   ) {
-    this.seedRegisteredAccounts();
-    this.seedTestData();
     this.restoreSession();
   }
 
   login(payload: LoginRequest) {
-    const registeredUser = this.getRegisteredUser(payload);
-    if (registeredUser) {
-      return from(this.loginRegisteredUser(registeredUser, payload.password)).pipe(
-        tap((res) => this.persistSession(res)),
-        catchError((err) => {
-          this.logout();
-          return throwError(() => err);
-        })
-      );
-    }
+    return from(Promise.all([
+      this.refreshRegisteredAccountsFromFirestore(),
+      this.refreshRegisteredShopsFromFirestore(),
+    ])).pipe(
+      switchMap(async () => {
+        const registeredUser = this.getRegisteredUser(payload);
+        if (registeredUser) {
+          return this.loginRegisteredUser(registeredUser, payload.password);
+        }
 
-    return from(signInWithEmailAndPassword(this.auth, payload.email.trim(), payload.password)).pipe(
-      switchMap(async (userCredential) => {
+        const identifier = payload.email.trim();
+        if (!identifier.includes('@')) {
+          const profile = await this.getRegisteredProfileById(identifier);
+          if (!profile) {
+            throw new Error('User ID was not found. Confirm this user is registered for the shop.');
+          }
+          return this.loginProfileUser(profile, identifier, payload.password);
+        }
+
+        const userCredential = await signInWithEmailAndPassword(this.auth, identifier, payload.password);
         const token = await userCredential.user.getIdToken();
         const user = await this.mapFirebaseUser(userCredential.user);
         return { token, user } as LoginResponse;
@@ -120,9 +125,9 @@ export class AuthService {
     }
 
     const shopId = registration.shopId.trim().toUpperCase();
-    const existingShops = this.getRegisteredShops();
     const firebaseConfigured = this.isFirebaseConfigured();
-    if (existingShops.some((shop) => shop.shopId === shopId) ||
+    const existingShops = firebaseConfigured ? [] : this.getRegisteredShops();
+    if ((!firebaseConfigured && existingShops.some((shop) => String(shop.shopId || shop.id || '').toUpperCase() === shopId)) ||
       (firebaseConfigured && (await getDoc(doc(this.firestore, 'shops', shopId))).exists())) {
       throw new Error('A shop with this shop ID is already registered.');
     }
@@ -150,6 +155,9 @@ export class AuthService {
     if (firebaseConfigured) {
       await setDoc(doc(this.firestore, 'shops', shopId), { ...shop, createdAt: serverTimestamp() });
       await Promise.all(accounts.map(({ user }) => this.userService.saveUserProfile(user.id, user)));
+      // Demo-only: credentials are stored in Firestore so registered shops can log in from any browser/device.
+      await Promise.all(accounts.map(({ user, password }) =>
+        setDoc(doc(this.firestore, 'registeredAccounts', String(user.userId || user.id)), { user, password })));
     }
 
     localStorage.setItem('vinoledger.registered.shops', JSON.stringify([...existingShops, shop]));
@@ -168,6 +176,21 @@ export class AuthService {
     return this.readStorage<any[]>('vinoledger.registered.shops', []);
   }
 
+  async refreshRegisteredAccountsFromFirestore(): Promise<{ user: User; password: string }[]> {
+    if (!this.isFirebaseConfigured()) {
+      return this.getRegisteredAccounts();
+    }
+
+    try {
+      const snapshot = await getDocs(collection(this.firestore, 'registeredAccounts'));
+      const remoteAccounts = snapshot.docs.map((docSnapshot) => docSnapshot.data() as { user: User; password: string });
+      localStorage.setItem('vinoledger.registered.accounts', JSON.stringify(remoteAccounts));
+      return remoteAccounts;
+    } catch {
+      return this.getRegisteredAccounts();
+    }
+  }
+
   async refreshRegisteredShopsFromFirestore(): Promise<any[]> {
     if (!this.isFirebaseConfigured()) {
       return this.getRegisteredShops();
@@ -176,15 +199,8 @@ export class AuthService {
     try {
       const snapshot = await getDocs(collection(this.firestore, 'shops'));
       const remoteShops = snapshot.docs.map((docSnapshot) => ({ ...docSnapshot.data(), id: docSnapshot.id, shopId: docSnapshot.id }));
-      const existingShops = this.getRegisteredShops();
-      const byId = new Map<string, any>();
-      [...existingShops, ...remoteShops].forEach((shop: any) => {
-        const key = String(shop.shopId || shop.id || '').toUpperCase();
-        if (key) byId.set(key, shop);
-      });
-      const merged = [...byId.values()];
-      localStorage.setItem('vinoledger.registered.shops', JSON.stringify(merged));
-      return merged;
+      localStorage.setItem('vinoledger.registered.shops', JSON.stringify(remoteShops));
+      return remoteShops;
     } catch {
       return this.getRegisteredShops();
     }
@@ -216,7 +232,21 @@ export class AuthService {
         const firebaseUser = await this.ensureFirebaseAuthUser(registeredUser.user.email, password);
         if (firebaseUser) {
           const token = await firebaseUser.getIdToken();
-          const user = await this.mapFirebaseUser(firebaseUser);
+          const mappedUser = await this.mapFirebaseUser(firebaseUser);
+          const userId = registeredUser.user.userId || registeredUser.user.id;
+          const registeredProfile = await this.getRegisteredProfileById(userId);
+          const user: User = {
+            ...registeredUser.user,
+            ...registeredProfile,
+            ...mappedUser,
+            id: firebaseUser.uid,
+            userId: registeredProfile?.userId || registeredUser.user.userId || userId,
+            email: firebaseUser.email || registeredProfile?.email || registeredUser.user.email,
+            role: registeredProfile?.role || registeredUser.user.role,
+            name: registeredProfile?.name || registeredUser.user.name || mappedUser.name,
+            shopId: registeredProfile?.shopId || registeredUser.user.shopId,
+          };
+          await this.userService.saveUserProfile(firebaseUser.uid, user);
           return { token, user };
         }
       } catch {
@@ -230,8 +260,43 @@ export class AuthService {
     };
   }
 
+  private async getRegisteredProfileById(identifier: string): Promise<User | null> {
+    if (!this.isFirebaseConfigured()) return null;
+
+    const normalizedId = identifier.trim().toUpperCase();
+    const profileSnapshot = await getDoc(doc(this.firestore, 'users', normalizedId));
+    if (profileSnapshot.exists()) {
+      return { ...profileSnapshot.data(), id: profileSnapshot.id } as User;
+    }
+
+    const accountSnapshot = await getDoc(doc(this.firestore, 'registeredAccounts', normalizedId));
+    if (!accountSnapshot.exists()) return null;
+
+    const account = accountSnapshot.data() as { user?: User };
+    return account.user ?? null;
+  }
+
+  private async loginProfileUser(profile: User, userId: string, password: string): Promise<LoginResponse> {
+    if (!profile.email) {
+      throw new Error('This user profile does not have an email address for authentication.');
+    }
+
+    const firebaseUser = await this.ensureFirebaseAuthUser(profile.email, password);
+    if (!firebaseUser) {
+      throw new Error('Firebase Authentication is not configured for this application.');
+    }
+
+    const user: User = {
+      ...profile,
+      id: firebaseUser.uid,
+      userId: profile.userId || userId,
+    };
+    await this.userService.saveUserProfile(firebaseUser.uid, user);
+    return { token: await firebaseUser.getIdToken(), user };
+  }
+
   private async ensureFirebaseAuthUser(email: string, password: string): Promise<FirebaseUser | null> {
-    if (!this.isFirebaseConfigured()) {
+    if (!this.isFirebaseConfigured() || !email.includes('@')) {
       return null;
     }
 
@@ -239,7 +304,8 @@ export class AuthService {
       const result = await signInWithEmailAndPassword(this.auth, email.trim(), password);
       return result.user;
     } catch (error: any) {
-      const shouldCreateUser = error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-login-credentials';
+      const shouldCreateUser = error?.code === 'auth/user-not-found' ||
+        error?.code === 'auth/invalid-login-credentials' || error?.code === 'auth/invalid-credential';
       if (!shouldCreateUser) {
         throw error;
       }
@@ -358,6 +424,34 @@ export class AuthService {
 
   private seedRegisteredAccounts(): void {
     const existingAccounts = this.getRegisteredAccounts();
+    const demoOwnerAccount = {
+      user: {
+        id: '40',
+        userId: '40',
+        email: '40',
+        role: 'Owner',
+        name: 'Boss',
+        shopId: '24083KKD40',
+        contactNumber: '+919000000001',
+        address: 'Kakinada',
+      },
+      password: '40',
+    };
+
+    const hasDemoOwner = existingAccounts.some((account) =>
+      String(account.user?.id || '').toLowerCase() === '40' ||
+      String(account.user?.userId || '').toLowerCase() === '40' ||
+      String(account.user?.email || '').toLowerCase() === '40'
+    );
+
+    if (existingAccounts.length > 0 && hasDemoOwner) {
+      return;
+    }
+
+    const mergedAccounts = hasDemoOwner ? existingAccounts : [...existingAccounts, demoOwnerAccount];
+    localStorage.setItem('vinoledger.registered.accounts', JSON.stringify(mergedAccounts));
+    localStorage.setItem('password:40', '40');
+
     if (existingAccounts.length > 0) {
       return;
     }
@@ -405,11 +499,24 @@ export class AuthService {
       {
         user: {
           id: 'admin-1',
-          email: 'admin@vinoleger.com',
+          email: 'subrahmanyam.2505@gmail.com',
           role: 'Admin',
           name: 'System Admin',
         },
         password: 'admin123',
+      },
+      {
+        user: {
+          id: '40',
+          userId: '40',
+          email: '40',
+          role: 'Owner',
+          name: 'Boss',
+          shopId,
+          contactNumber: '+919000000001',
+          address: 'Kakinada',
+        },
+        password: '40',
       },
       {
         user: {
@@ -442,6 +549,7 @@ export class AuthService {
     localStorage.setItem('vinoledger.registered.shops', JSON.stringify([shop]));
     localStorage.setItem('vinoledger.registered.accounts', JSON.stringify(accounts));
     localStorage.setItem('password:admin@vinoleger.com', 'admin123');
+    localStorage.setItem('password:40', '40');
     localStorage.setItem('password:owner@vinoleger.com', '24083KKD40@Owner1');
     localStorage.setItem('password:cashier@vinoleger.com', '24083KKD40@Cashier1');
     localStorage.setItem('vinoledger.shop.profile', JSON.stringify(shop));

@@ -1,1 +1,50 @@
-<router-outlet></router-outlet>
+<app-shell-header *ngIf="showAppHeader"></app-shell-header>
+
+<div
+	class="app-frame"
+	[class.with-owner-header]="showAppHeader"
+	[class.with-mobile-nav]="showMobileNavigation"
+	[class.with-admin-sidebar]="showAdminSidebar"
+	[class.with-desktop-sidebar]="showDesktopSidebar"
+	[class.standalone-day-sheet]="isStandaloneDaySheet"
+>
+	<aside *ngIf="showAdminSidebar || showDesktopSidebar" class="admin-sidebar">
+		<div class="sidebar-brand" *ngIf="!showAppHeader">
+			<span class="brand-mark">VL</span>
+			<div><strong>VinoLedger</strong><span>{{ auth.currentUser()?.role === 'Admin' ? 'Administration' : 'Dashboard' }}</span></div>
+		</div>
+		<nav class="sidebar-navigation" aria-label="Primary navigation">
+			<button
+				*ngFor="let item of auth.currentUser()?.role === 'Admin' ? adminSidebarItems : desktopSidebarItems"
+				type="button"
+				class="sidebar-item"
+				[class.active]="isActive(item.route)"
+				[attr.aria-current]="isActive(item.route) ? 'page' : null"
+				(click)="navigateTo(item.route)"
+			>
+				<app-icon [name]="item.icon"></app-icon>
+				<span>{{ item.label }}</span>
+			</button>
+		</nav>
+	</aside>
+
+	<main class="route-content">
+		<router-outlet></router-outlet>
+	</main>
+
+	<nav *ngIf="showMobileNavigation" class="bottom-tabbar" aria-label="Main navigation">
+		<button
+			*ngFor="let item of mobileNavItems"
+			type="button"
+			class="tab-item"
+			[class.help-item]="item.route === '/contact-admin'"
+			[class.active]="isActive(item.route)"
+			[attr.aria-label]="item.label"
+			[attr.aria-current]="isActive(item.route) ? 'page' : null"
+			(click)="navigateTo(item.route)"
+		>
+			<app-icon [name]="item.icon"></app-icon>
+			<span>{{ item.shortLabel }}</span>
+		</button>
+	</nav>
+</div>

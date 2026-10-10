@@ -1,0 +1,121 @@
+<div class="page-loader" *ngIf="isCheckingAccess" role="status" aria-live="polite" aria-busy="true">
+  <div class="page-loader-panel">
+    <span class="page-loader-spinner" aria-hidden="true"></span>
+    <strong>Loading opening stock...</strong>
+    <span>Checking access and restoring your saved draft.</span>
+  </div>
+</div>
+
+<main class="shell" *ngIf="!isCheckingAccess">
+  <section class="content vl-page-content">
+    <div class="eyebrow">SHOP ONBOARDING</div>
+    <h1>Opening stock</h1>
+    <p class="hint">Enter the stock already available at the shop before the first invoice, brand by brand. This is a one-time entry used as the opening balance for your first day sheet.</p>
+
+    <div class="search-row" style="display:flex;gap:12px;margin-top:16px">
+      <input [(ngModel)]="searchTerm" (ngModelChange)="searchChanged($event)" (keydown.enter)="addBrandFromSearch()" placeholder="Search brand code or name" style="flex:1;box-sizing:border-box;padding:12px;border:1px solid #c9cec5;background:#fafaf6;border-radius:3px">
+      <button type="button" class="outline" [disabled]="!searchTerm.trim()" (click)="addBrandFromSearch()">+ Add Brand</button>
+    </div>
+    <div class="search-results" *ngIf="searchResults.length > 0">
+      <button class="search-result" type="button" *ngFor="let option of searchResults" (click)="selectSearchResult(option)" [attr.aria-label]="'Select ' + option.brand + ', code ' + option.code">
+        <span class="result-code">{{ searchResultCode(option) }}</span>
+        <span class="result-copy">
+          <strong>{{ option.brand }}</strong>
+          <small>{{ searchResultDetails(option) }}</small>
+        </span>
+        <span class="result-select">Add</span>
+      </button>
+    </div>
+    <p class="warning-message" *ngIf="warningMessage" role="alert">{{ warningMessage }}</p>
+
+    <div class="actions">
+      <button type="button" class="outline" [disabled]="rows.length === 0 || isSaving" (click)="saveDraft()">Save Draft</button>
+      <button type="button" class="primary" [disabled]="isSaving" (click)="submit()">Submit Opening Stock</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Brand Code - Brand Name</th>
+            <th>Product Type</th>
+            <th>Size (ml)</th>
+            <th>Units per case</th>
+            <th>Prt.Delivered</th>
+            <th>Qty Bottles</th>
+            <th>MRP</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of rows; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>{{ brandDisplay(row) }}</td>
+            <td><input class="product-type-input" type="text" [(ngModel)]="row.productType" placeholder="Product type"></td>
+            <td class="size-cell">
+              <app-select class="size-select" ariaLabel="Select product size" [options]="getSizeOptions(row)" [(ngModel)]="row.size" (ngModelChange)="sizeChanged(row)"></app-select>
+            </td>
+            <td><input type="number" min="0" [value]="row.bottlesPerCase || 0" [attr.aria-label]="'Units per case for ' + row.brand" title="Loaded from the MRP list for the selected size. Missing values are treated as zero." disabled></td>
+            <td><input type="number" min="0" [(ngModel)]="row.prtDelivered" (ngModelChange)="update(row)"></td>
+            <td class="calculated">{{ row.bottles }}</td>
+            <td><input type="number" min="0" step="0.01" [(ngModel)]="row.mrp" placeholder="MRP" disabled title="MRP is managed in Owner > Update MRP. It cannot be edited during Opening Stock entry." aria-label="MRP value. Managed in Owner Update MRP."></td>
+            <td class="row-actions">
+              <button type="button" class="add-size-button" aria-label="Add another size for this brand" (click)="addSizeRow(row)">+</button>
+              <button type="button" aria-label="Remove row" (click)="removeRow(i)" style="border:0;background:#c8cec8;color:#fff;border-radius:50%;width:28px;height:28px;font-size:1.1rem;line-height:1">−</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="invoice-total" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:16px 20px;background:#e8eee7;border-left:3px solid #4e866b;color:#254f43">
+      <label for="total-bottles">Total Number of Bottles</label>
+      <input id="total-bottles" type="number" [value]="totalBottles" disabled style="width:220px;box-sizing:border-box;padding:9px;border:1px solid #c9cec5;background:#fafaf6;border-radius:3px">
+    </div>
+
+  </section>
+
+  <datalist id="brand-options">
+    <option *ngFor="let option of availableBrands" [value]="option.code + ' - ' + option.brand"></option>
+  </datalist>
+
+  <div class="modal-backdrop" *ngIf="confirmationOpen" (click)="cancelConfirmation()">
+    <div class="modal submission-modal" role="dialog" aria-modal="true" aria-labelledby="opening-stock-confirm-title" (click)="$event.stopPropagation()">
+      <h2 id="opening-stock-confirm-title">Confirm Opening Stock</h2>
+      <p class="confirmation-warning">Submit once only. You cannot edit opening stock afterward.</p>
+      <ul class="submission-rules">
+        <li *ngFor="let rule of submissionRules">{{ rule }}</li>
+      </ul>
+      <p>Total bottles entered: <strong>{{ totalBottles }}</strong></p>
+      <div class="actions">
+        <button class="outline" (click)="cancelConfirmation()">Cancel</button>
+        <button class="primary" [disabled]="isSaving" (click)="confirmSave()">
+          <span class="button-spinner" *ngIf="isSaving" aria-hidden="true"></span>
+          {{ isSaving ? 'Submitting...' : 'Submit Once' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="status" (click)="close()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()" [class.failed]="status === 'error'" [class.warning]="status === 'warning'">
+      <h2>{{ status === 'draftSaved' ? 'Saved' : status === 'success' ? 'Opening stock submitted' : status === 'warning' ? 'Please check your entry' : 'Save failed' }}</h2>
+      <p *ngIf="status === 'draftSaved'">Your progress is saved. You can return and continue editing before submission.</p>
+      <p *ngIf="status === 'success'">Opening stock is submitted and will seed your first day sheet.</p>
+      <p *ngIf="status === 'error'">{{ statusMessage || 'Unable to save opening stock.' }}</p>
+      <ul class="validation-messages" *ngIf="status === 'warning'">
+        <li *ngFor="let message of statusMessages">{{ message }}</li>
+      </ul>
+      <button class="primary" (click)="close()">{{ status === 'draftSaved' ? 'Continue Editing' : status === 'success' ? 'Go to Sheet Date' : status === 'warning' ? 'Review Entry' : 'Close' }}</button>
+    </div>
+  </div>
+
+  <div class="page-loader" *ngIf="isSaving" role="status" aria-live="polite">
+    <div class="page-loader-panel">
+      <span class="page-loader-spinner" aria-hidden="true"></span>
+      <strong>Saving opening stock...</strong>
+      <span>Saving the opening stock to Firestore.</span>
+    </div>
+  </div>
+</main>

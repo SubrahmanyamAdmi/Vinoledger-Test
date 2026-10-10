@@ -1,7 +1,13 @@
-<app-topbar></app-topbar>
-<app-sidenav>
-  <div class="page-content">
-    <h2>Accounting</h2>
-    <p>Cash, bank, customer/supplier transactions and ledger details.</p>
-  </div>
-</app-sidenav>
+<div class="accounting-page">
+  <header *ngIf="auth.currentUser()?.role !== 'Owner'" class="accounting-header">
+    <strong>VinoLedger</strong>
+    <span>Accounting</span>
+  </header>
+  <main class="page-content vl-page-content">
+    <div class="maintenance-message" role="status">
+      <span class="maintenance-icon" aria-hidden="true">!</span>
+      <h1>Under Maintenance</h1>
+      <p>Accounting is currently under maintenance.</p>
+    </div>
+  </main>
+</div>
