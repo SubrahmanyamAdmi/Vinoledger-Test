@@ -16,10 +16,7 @@
     </div>
 
     <div class="table-wrapper">
-      <div class="page-loader" *ngIf="loading" role="status" aria-live="polite">
-        <span class="loader-spinner" aria-hidden="true"></span>
-        <p>Loading customers and users...</p>
-      </div>
+      <app-loader *ngIf="loading" [overlay]="false" title="Loading customers and users..."></app-loader>
       <p class="table-state error-state" *ngIf="!loading && loadError" role="alert">{{ loadError }}</p>
       <table class="customers-table" *ngIf="!loading && !loadError">
         <thead>

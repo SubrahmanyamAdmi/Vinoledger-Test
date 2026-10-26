@@ -29,6 +29,9 @@
 	</aside>
 
 	<main class="route-content">
+		<div *ngIf="isRouteLoading" class="route-loader">
+			<app-loader [overlay]="false" title="Loading page..."></app-loader>
+		</div>
 		<router-outlet></router-outlet>
 	</main>
 
@@ -48,3 +51,5 @@
 		</button>
 	</nav>
 </div>
+
+<app-dialog-host></app-dialog-host>

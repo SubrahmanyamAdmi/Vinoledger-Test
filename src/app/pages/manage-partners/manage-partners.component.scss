@@ -246,6 +246,8 @@ select:focus {
 
 .tab-panel { padding-top: 16px; }
 
+.mobile-back { display: none; }
+
 .panel-heading {
   display: flex;
   align-items: center;
@@ -1048,6 +1050,33 @@ select:focus {
   .setup-row { flex-direction: column; }
   .setup-row input { width: 100%; }
   .panel-heading { flex-direction: column; align-items: flex-start; }
+  .tab-row { flex-direction: column; gap: 10px; border-bottom: 0; margin-top: 0; }
+  .tab-button {
+    width: 100%;
+    text-align: left;
+    padding: 18px 16px;
+    border-radius: 12px;
+    background: var(--vl-white);
+    box-shadow: 0 2px 8px rgba(11, 28, 54, 0.08);
+  }
+  .tab-button.active { background: var(--vl-white); color: var(--vl-text-primary); }
+  .partners-panel:not(.mobile-closed) .tab-row { display: none; }
+  .partners-panel.mobile-closed .tab-panel,
+  .partners-panel.mobile-closed .panel-heading,
+  .partners-panel.mobile-closed .save-row { display: none; }
+  .partners-panel:not(.mobile-closed) .mobile-back {
+    display: inline-flex;
+    align-self: flex-start;
+    margin-bottom: 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--vl-border);
+    border-radius: 999px;
+    background: var(--vl-white);
+    color: var(--vl-navy);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
   .form-grid,
   .detail-summary-grid,
   .detail-meta-grid,

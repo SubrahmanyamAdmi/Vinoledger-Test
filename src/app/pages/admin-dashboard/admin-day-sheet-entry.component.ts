@@ -4,13 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { BusinessDataService } from '../../services/business-data.service';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
 import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 
 @Component({
   selector: 'app-admin-day-sheet-entry',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent, AppDateInputComponent],
+  imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent, AppSelectComponent, AppDateInputComponent],
   templateUrl: './admin-day-sheet-entry.component.html',
   styleUrls: ['./admin-day-sheet-entry.component.scss', './admin-page-theme.scss']
 })

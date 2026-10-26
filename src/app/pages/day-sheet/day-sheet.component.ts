@@ -8,9 +8,10 @@ import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService, InvoiceRecord, DaySheetRecord } from '../../services/business-data.service';
-import { FirestoreService } from '../../services/firestore.service';
+import { MrpCatalogService } from '../../services/mrp-catalog.service';
 import { environment } from '../../../environments/environment';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 
 interface SheetSize { size: string; opening: number; sales: number; closing: number; price: number; amount: number; balanceEntered?: boolean; }
 interface SheetRecord { brand: string; code: string; productType?: string; date: string; sizes: SheetSize[]; difference?: number; remarks?: string; }
@@ -18,7 +19,7 @@ interface ExpenseRow { name: string; value: number; comment: string; }
 interface ProfitRow { name: string; value: number; comment: string; }
 interface CashDetails { cashDeposit: number; phonePay: number; comments: string; bankChallanReceipt: string; }
 
-@Component({ selector: 'app-day-sheet', standalone: true, imports: [CommonModule, FormsModule, IconComponent], templateUrl: './day-sheet.component.html', styleUrls: ['./day-sheet.component.scss', '../admin-dashboard/admin-page-theme.scss'] })
+@Component({ selector: 'app-day-sheet', standalone: true, imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent], templateUrl: './day-sheet.component.html', styleUrls: ['./day-sheet.component.scss', '../admin-dashboard/admin-page-theme.scss'] })
 export class DaySheetComponent implements OnInit {
   shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{"id":"KKD41","owner":"Y Bathalaswamy"}');
   date = sessionStorage.getItem('vinoledger.date') || new Date().toISOString().slice(0, 10);
@@ -43,7 +44,7 @@ export class DaySheetComponent implements OnInit {
     return this.route.snapshot.queryParamMap.get('view') === 'standalone';
   }
 
-  constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService, private firestore: FirestoreService, private route: ActivatedRoute) {
+  constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService, private mrpCatalog: MrpCatalogService, private route: ActivatedRoute) {
     this.removeLegacyApplicationShare();
   }
 
@@ -127,18 +128,7 @@ export class DaySheetComponent implements OnInit {
     }
 
     try {
-      const globalDoc = await this.firestore.getDocumentOnce<{ brands?: any[] }>('mrpCatalog', 'global');
-      const overrideDoc = await this.firestore.getDocumentOnce<{ brands?: any[] }>('mrpCatalogOverrides', activeShopId);
-      const globalBrands = Array.isArray(globalDoc?.brands) ? globalDoc.brands : [];
-      const overrideBrands = Array.isArray(overrideDoc?.brands) ? overrideDoc.brands : [];
-      const mergedBrands = this.mergeMrpCatalogs([globalBrands, overrideBrands]);
-
-      if (!mergedBrands.length) {
-        return;
-      }
-
-      const storageKey = `vinoledger.mrp.brands.${activeShopId}`;
-      localStorage.setItem(storageKey, JSON.stringify(mergedBrands));
+      await this.mrpCatalog.loadCatalog(activeShopId);
     } catch {
       // Ignore sync failures and keep the local catalog.
     }
@@ -895,4 +885,3 @@ export class DaySheetComponent implements OnInit {
     this.expenseRows = this.createExpenseRows();
   }
 }
-

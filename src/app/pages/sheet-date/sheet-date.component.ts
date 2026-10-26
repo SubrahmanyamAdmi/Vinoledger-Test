@@ -5,9 +5,10 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
 
-@Component({ selector: 'app-sheet-date', standalone: true, imports: [CommonModule, FormsModule, IconComponent, AppDateInputComponent], templateUrl: './sheet-date.component.html', styleUrls: ['./sheet-date.component.scss'] })
+@Component({ selector: 'app-sheet-date', standalone: true, imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent, AppDateInputComponent], templateUrl: './sheet-date.component.html', styleUrls: ['./sheet-date.component.scss'] })
 export class SheetDateComponent implements OnInit {
   shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{"id":"KKD41","owner":"Y Bathalaswamy"}');
   today = this.toDateInputValue(new Date());

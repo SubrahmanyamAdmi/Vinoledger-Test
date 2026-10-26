@@ -1,0 +1,77 @@
+Attached Element Context from Integrated Browser
+
+Element: button.outline
+
+URL: http://localhost:4200/sheet-date
+
+HTML Path: app-root > app-sheet-date > main.shell > section.content > div.actions > button.outline
+
+Outer HTML:
+```html
+<button _ngcontent-ng-c258404481="" class="outline">＋ Add Invoice</button>
+```
+
+Dimensions:
+- top: 514px
+- left: 438px
+- width: 650px
+- height: 49px
+
+CSS:
+```css
+.primary[_ngcontent-ng-c258404481], .outline[_ngcontent-ng-c258404481] { width: 100%;
+  padding: 15px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer; }
+.outline[_ngcontent-ng-c258404481] { border: 1px solid #254f43;
+  background: transparent;
+  color: #254f43; }
+
+/* Inherited */
+[_nghost-ng-c258404481] { color: #20241f; font-family: "Trebuchet MS", sans-serif }
+body { font-family: Roboto, "Helvetica Neue", sans-serif }
+.mat-body-large, .mat-typography .mat-body-large, .mat-typography { font:400 1rem / 1.5rem Roboto,sans-serif; letter-spacing:.031rem }
+
+/* Resolved values */
+margin: 0px /*UA*/;
+padding: 15px;
+border-radius: 4px;
+border: 1px solid rgb(37, 79, 67);
+appearance: auto /*UA*/;
+background-attachment: scroll;
+background-clip: border-box;
+background-color: rgba(0, 0, 0, 0);
+background-image: none;
+background-origin: padding-box;
+background-position-x: 0%;
+background-position-y: 0%;
+background-repeat: repeat;
+background-size: auto;
+box-sizing: border-box /*UA*/;
+color: rgb(37, 79, 67);
+cursor: pointer;
+display: block;
+font-family: Arial;
+font-feature-settings: normal;
+font-kerning: auto;
+font-size: 13.3333px;
+font-size-adjust: none;
+font-stretch: 100%;
+font-style: normal;
+font-weight: 700;
+height: 49px;
+letter-spacing: normal;
+line-height: normal;
+padding-block-end: 15px /*UA*/;
+padding-block-start: 15px /*UA*/;
+padding-inline-end: 15px /*UA*/;
+padding-inline-start: 15px /*UA*/;
+text-align: center /*UA*/;
+text-indent: 0px /*UA*/;
+text-rendering: auto /*UA*/;
+text-shadow: none /*UA*/;
+text-transform: none /*UA*/;
+width: 650px;
+word-spacing: 0px /*UA*/;
+```

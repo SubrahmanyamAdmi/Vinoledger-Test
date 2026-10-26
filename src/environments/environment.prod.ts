@@ -1,12 +1,12 @@
 export const environment = {
   production: true,
   firebaseConfig: {
-    apiKey: 'AIzaSyAqpp6peQJKAVJ7r7XQHgGa0cEQRs5Z_UI',
-    authDomain: 'vino-ledger-ff60f.firebaseapp.com',
-    projectId: 'vino-ledger-ff60f',
-    storageBucket: 'vino-ledger-ff60f.firebasestorage.app',
-    messagingSenderId: '976076278871',
-    appId: '1:976076278871:web:2b28732431f342ddcf6712',
-    measurementId: 'G-BMJRBPKL74'
+    apiKey: "AIzaSyA0r3EDt5MgswD4rkQeUqs4-jIaR0f8O9M",
+  authDomain: "vino-ledger-prod.firebaseapp.com",
+  projectId: "vino-ledger-prod",
+  storageBucket: "vino-ledger-prod.firebasestorage.app",
+  messagingSenderId: "23684132093",
+  appId: "1:23684132093:web:5835c9692862d359e22294",
+  measurementId: "G-CD87EVW8RE"
   }
 };

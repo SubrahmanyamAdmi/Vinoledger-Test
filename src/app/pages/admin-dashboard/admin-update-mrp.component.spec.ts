@@ -11,12 +11,14 @@ describe('AdminUpdateMrpComponent import rules', () => {
       } as any,
       { navigate: jasmine.createSpy('navigate') } as any,
       {
-        getDocumentOnce: jasmine.createSpy('getDocumentOnce'),
-        setDocument: jasmine.createSpy('setDocument')
+        getShops: () => ({ subscribe: () => undefined })
       } as any,
       {
-        getShops: () => ({ subscribe: () => undefined })
-      } as any
+        loadCatalog: () => Promise.resolve([]),
+        saveGlobalCatalog: () => Promise.resolve(),
+        saveShopOverrides: () => Promise.resolve(),
+      } as any,
+      { show: () => Promise.resolve(true) } as any
     );
   });
 

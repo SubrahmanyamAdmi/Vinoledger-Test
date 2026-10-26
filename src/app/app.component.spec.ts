@@ -8,6 +8,8 @@ import { AuthService } from './services/auth.service';
 import { BusinessDataService } from './services/business-data.service';
 import { IconComponent } from './shared/icon/icon.component';
 import { AppHeaderComponent } from './shared/app-header/app-header.component';
+import { AppDialogHostComponent } from './shared/dialog/app-dialog-host.component';
+import { AppLoaderComponent } from './shared/loader/app-loader.component';
 
 describe('AppComponent', () => {
   let currentUser: jasmine.Spy;
@@ -22,7 +24,9 @@ describe('AppComponent', () => {
         CommonModule,
         RouterTestingModule,
         IconComponent,
-        AppHeaderComponent
+        AppHeaderComponent,
+        AppDialogHostComponent,
+        AppLoaderComponent
       ],
       declarations: [
         AppComponent
@@ -51,6 +55,27 @@ describe('AppComponent', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.bottom-tabbar')).toBeNull();
+  });
+
+  it('should hide shared navigation immediately on a standalone day sheet URL', () => {
+    const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.history.replaceState({}, '', '/day-sheet?view=standalone');
+    currentUser.and.returnValue({ role: 'User' });
+    isLoggedIn.and.returnValue(true);
+
+    try {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+
+      expect(fixture.componentInstance.isStandaloneDaySheet).toBeTrue();
+      expect(compiled.querySelector('app-shell-header')).toBeNull();
+      expect(compiled.querySelector('.admin-sidebar')).toBeNull();
+      expect(compiled.querySelector('.bottom-tabbar')).toBeNull();
+      fixture.destroy();
+    } finally {
+      window.history.replaceState({}, '', originalUrl || '/');
+    }
   });
 
   it('should show owner navigation while signed in', () => {

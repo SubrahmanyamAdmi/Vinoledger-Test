@@ -19,13 +19,7 @@
       </button>
     </div>
 
-    <div class="page-loader" *ngIf="isLoadingRecords" role="status" aria-live="polite" aria-label="Loading day sheet">
-      <span class="page-loader-spinner" aria-hidden="true"></span>
-      <div>
-        <strong>Loading day sheet</strong>
-        <span>Fetching invoice and stock data.</span>
-      </div>
-    </div>
+    <app-loader *ngIf="isLoadingRecords" title="Loading day sheet" message="Fetching invoice and stock data."></app-loader>
 
     <div class="empty" *ngIf="!isLoadingRecords && !visibleRecords.length">
       <strong>No entries saved yet</strong>

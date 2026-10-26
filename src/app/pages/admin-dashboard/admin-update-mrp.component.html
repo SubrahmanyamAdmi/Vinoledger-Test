@@ -1,3 +1,5 @@
+<app-loader *ngIf="isLoading" title="Loading MRP values..." message="Fetching the latest MRP catalog."></app-loader>
+
 <div class="mrp-shell">
   <main class="content-wrap vl-page-content">
     <div class="page-title-row">
@@ -9,6 +11,9 @@
         <h1>Check MRP Value</h1>
         <p class="page-description">{{ isAdmin ? 'Review the global catalog or choose a shop to check size-specific prices.' : 'Review the bottle MRP values used by your shop. Search by brand or code to check size-specific prices.' }}</p>
       </div>
+      <button *ngIf="isOwner && selectedShopId" class="reset-btn" type="button" [disabled]="!overriddenCount" (click)="resetToGlobal()" title="Replace all shop-specific MRP values with the global MRP">
+        Reset to Global MRP<span class="reset-count" *ngIf="overriddenCount">{{ overriddenCount }}</span>
+      </button>
     </div>
 
     <section class="search-panel" *ngIf="isAdmin">
@@ -17,12 +22,13 @@
         id="mrp-shop"
         ariaLabel="MRP scope"
         [options]="shopOptions"
-        [(ngModel)]="selectedShopId"
+        [(ngModel)]="scope"
         (ngModelChange)="onShopChanged()"
         [disabled]="loadingShops"
       ></app-select>
       <small *ngIf="loadingShops">Loading shops...</small>
       <small *ngIf="selectedShopId">Edits here override the global MRP only for this shop.</small>
+      <small *ngIf="overrideView">Shops whose MRP differs from the global MRP are grouped by price. All other items use the global MRP.</small>
     </section>
 
     <section class="search-panel">
@@ -34,12 +40,20 @@
         [(ngModel)]="search"
         (ngModelChange)="onSearchChange()"
         placeholder="Type brand name or code"
+        autocomplete="off"
       />
-      <datalist id="brand-search-options">
-        <option *ngFor="let brand of brands" [value]="getBrandDisplayLabel(brand)"></option>
-      </datalist>
-      <div class="action-row" *ngIf="canEditMrp">
-        <ng-container *ngIf="isAdmin">
+      <div class="search-results" *ngIf="resultsOpen && searchResults.length > 0">
+        <button class="search-result" type="button" *ngFor="let brand of searchResults" (click)="selectSearchResult(brand)" [attr.aria-label]="'Select ' + brand.brand">
+          <span class="result-code">{{ brandPrimaryCode(brand) }}</span>
+          <span class="result-copy">
+            <strong>{{ brand.brand }}</strong>
+            <small>{{ searchResultDetails(brand) }}</small>
+          </span>
+          <span class="result-select">Select</span>
+        </button>
+      </div>
+      <div class="action-row" *ngIf="isAdmin && !selectedShopId && !overrideView">
+        <ng-container>
         <label class="import-btn">
           Import Excise Excel
           <input type="file" accept=".xlsx,.xls" (change)="importWorkbook($event)" />
@@ -48,7 +62,12 @@
         </ng-container>
         <button class="action-btn tertiary" type="button" (click)="toggleAddBrandForm()">{{ showAddBrandForm ? 'Close' : 'Add New Brand' }}</button>
       </div>
-      <div class="new-brand-form" *ngIf="showAddBrandForm && canEditMrp">
+      <div class="action-row" *ngIf="isAdmin && selectedShopId">
+        <button class="reset-btn" type="button" [disabled]="!overriddenCount" (click)="resetToGlobal()" title="Replace all shop-specific MRP values with the global MRP">
+          Reset to Global MRP<span class="reset-count" *ngIf="overriddenCount">{{ overriddenCount }}</span>
+        </button>
+      </div>
+      <div class="new-brand-form" *ngIf="showAddBrandForm && isAdmin && !selectedShopId && !overrideView">
         <div class="new-brand-grid">
           <label>
             Brand Code
@@ -80,7 +99,64 @@
       <p class="import-error" *ngIf="importError">{{ importError }}</p>
     </section>
 
+    <section class="table-panel override-panel" *ngIf="overrideView">
+      <div class="override-section-heading">
+        <h2 class="override-heading">Overridden MRP <span>{{ filteredOverrideItems.length }}</span></h2>
+        <button
+          *ngIf="isAdmin"
+          class="reset-btn"
+          type="button"
+          [disabled]="!overrideShopCount || resettingOverrides"
+          (click)="resetAllShopsToGlobal()"
+          title="Reset every shop-specific MRP to the global catalog"
+        >{{ resettingOverrides ? 'Resetting...' : 'Reset All Shops to Global' }}</button>
+      </div>
+      <div class="copy-panel" *ngIf="isAdmin">
+        <h3>Copy overrides to another shop</h3>
+        <label for="copy-source">Source shop</label>
+        <app-select
+          id="copy-source"
+          ariaLabel="Source shop"
+          [options]="copySourceOptions"
+          [(ngModel)]="copySource"
+          (ngModelChange)="onCopySourceChange()"
+          placeholder="Select a shop with overrides"
+        ></app-select>
+        <ng-container *ngIf="copySource">
+          <span class="copy-label">Target shops</span>
+          <div class="copy-targets">
+            <label class="copy-target" *ngFor="let shop of copyTargetShops">
+              <input type="checkbox" [checked]="copyTargets.includes(shop.id)" (change)="toggleCopyTarget(shop.id)" />
+              <span>{{ shop.id }} - {{ shop.name }}</span>
+            </label>
+          </div>
+          <label class="copy-target">
+            <input type="checkbox" [(ngModel)]="copyReplace" />
+            <span>Replace the target's own overrides (otherwise they are kept)</span>
+          </label>
+          <button class="action-btn primary" type="button" [disabled]="!copyTargets.length || copying" (click)="copyOverrides()">
+            {{ copying ? 'Copying...' : 'Copy Overrides' }}
+          </button>
+        </ng-container>
+      </div>
+      <p class="override-empty" *ngIf="!filteredOverrideItems.length">No shop has an overridden MRP.</p>
+      <div class="override-item" *ngFor="let item of filteredOverrideItems">
+        <div class="override-item-head">
+          <strong>{{ item.codes.join(', ') }} - {{ item.brand }}</strong>
+          <span>{{ item.size }}</span>
+          <small>Global ₹{{ item.globalMrp }}</small>
+        </div>
+        <div class="override-group" *ngFor="let group of item.groups">
+          <span class="override-price">₹{{ group.mrp }}</span>
+          <span class="override-shops">
+            <span class="shop-chip" *ngFor="let id of group.shopIds">{{ id }}</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
     <section class="table-panel">
+      <h2 class="override-heading" *ngIf="overrideView">Global MRP <span>{{ globalOnlyRows.length }}</span></h2>
       <div class="table-scroll">
       <div class="table-header">
         <span>S.No</span>
@@ -89,7 +165,7 @@
         <span>MRP</span>
       </div>
 
-      <div class="table-row" *ngFor="let row of mrpRows; let i = index; trackBy: trackByBrandSize" [class.shop-mrp-changed]="isShopChanged(row)" [attr.title]="isShopChanged(row) ? 'Shop-specific MRP override' : null">
+      <div class="table-row" *ngFor="let row of (overrideView ? globalOnlyRows : mrpRows); let i = index; trackBy: trackByBrandSize" [class.shop-mrp-changed]="isShopChanged(row)" [attr.title]="isShopChanged(row) ? 'Shop-specific MRP override' : null">
         <span>{{ i + 1 }}</span>
         <span class="brand-name-cell">
           <span class="brand-codes">{{ (row.brand.codes || [row.brand.code]).join(', ') }} - </span>
@@ -119,6 +195,14 @@
               (click)="startRowEdit(row)"
               [attr.aria-label]="'Edit MRP for ' + row.brand.brand + ' ' + row.size.size"
             >✎</button>
+            <button
+              *ngIf="canEditMrp && selectedShopId && isShopChanged(row)"
+              class="row-reset-btn"
+              type="button"
+              (click)="resetRowToGlobal(row)"
+              title="Reset to global MRP"
+              [attr.aria-label]="'Reset MRP to global for ' + row.brand.brand + ' ' + row.size.size"
+            ><app-icon name="reset"></app-icon></button>
           </ng-template>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
 import { Router } from '@angular/router';
 import { SheetDateComponent } from './sheet-date.component';
@@ -28,6 +29,7 @@ describe('SheetDateComponent', () => {
     await TestBed.configureTestingModule({
       imports: [SheetDateComponent],
       providers: [
+        provideNoopAnimations(),
         { provide: BusinessDataService, useValue: businessDataSpy },
         { provide: AuthService, useValue: authSpy },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate'), navigateByUrl: jasmine.createSpy('navigateByUrl') } }

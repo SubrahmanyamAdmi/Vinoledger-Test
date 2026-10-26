@@ -275,14 +275,9 @@ textarea:focus,
 .invoices-container .user-role { color: var(--vl-white); }
 .invoices-container .user-label { color: var(--vl-champagne); }
 .invoices-container .customer-selection,
-.invoices-container .add-form,
 .invoices-container .invoices-section { border-color: var(--vl-border); }
-.invoices-container .customer-selection .add-invoice-section .add-invoice-btn,
-.invoices-container .add-form .form-actions .btn-submit { background: var(--vl-navy); color: var(--vl-white); }
-.invoices-container .btn-cancel { border-color: var(--vl-border); color: var(--vl-navy); }
 .invoices-container .invoice-footer { border-radius: 8px; }
-.invoices-container .customer-selection .form-group label,
-.invoices-container .add-form .form-group label { color: var(--vl-text-secondary); }
+.invoices-container .customer-selection .form-group label { color: var(--vl-text-secondary); }
 .invoices-container .invoices-table thead { background: var(--vl-navy); border-color: var(--vl-border); }
 .invoices-container .invoices-table thead th { background: var(--vl-navy); color: var(--vl-white); }
 .invoices-container .invoices-table tbody tr { border-color: var(--vl-border); }

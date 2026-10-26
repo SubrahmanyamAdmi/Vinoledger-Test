@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 
 type StockRow = {
   serial: number;
@@ -19,7 +20,7 @@ type StockRow = {
 @Component({
   selector: 'app-stock',
   standalone: true,
-  imports: [CommonModule, IconComponent],
+  imports: [CommonModule, IconComponent, AppLoaderComponent],
   templateUrl: './stock.component.html',
   styleUrls: ['./stock.component.scss']
 })
@@ -29,6 +30,7 @@ export class StockComponent {
   stockDate = '';
   stockRows: StockRow[] = [];
   totalStockCost = 0;
+  isLoading = true;
 
   constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService) {
     const user = this.auth.currentUser();
@@ -120,19 +122,25 @@ export class StockComponent {
     const localSubmissions = this.loadSubmissions();
     this.applyLatestSubmission(localSubmissions);
     this.businessData.getDaySheets().subscribe({
-      next: (remoteSubmissions) => this.applyLatestSubmission([
-        ...localSubmissions,
-        ...(Array.isArray(remoteSubmissions) ? remoteSubmissions : [])
-      ]),
-      error: () => this.loadOpeningStockFallback()
+      next: (remoteSubmissions) => {
+        const hasSubmission = this.applyLatestSubmission([
+          ...localSubmissions,
+          ...(Array.isArray(remoteSubmissions) ? remoteSubmissions : [])
+        ]);
+        if (hasSubmission) {
+          this.isLoading = false;
+          return;
+        }
+        void this.loadOpeningStockFallback().finally(() => this.isLoading = false);
+      },
+      error: () => void this.loadOpeningStockFallback().finally(() => this.isLoading = false)
     });
   }
 
-  private applyLatestSubmission(submissions: any[]) {
+  private applyLatestSubmission(submissions: any[]): boolean {
     const latest = [...submissions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0];
     if (!latest) {
-      this.loadOpeningStockFallback();
-      return;
+      return false;
     }
 
     this.stockDate = latest.date || '';
@@ -161,10 +169,11 @@ export class StockComponent {
 
     this.stockRows = rows;
     this.totalStockCost = rows.reduce((sum, row) => sum + row.cost, 0);
+    return true;
   }
 
   private loadOpeningStockFallback() {
-    this.businessData.getOpeningStock(this.shopId).then((openingStock) => {
+    return this.businessData.getOpeningStock(this.shopId).then((openingStock) => {
       if (!openingStock || openingStock.status === 'draft' || !Array.isArray(openingStock.rows)) return;
       this.stockDate = openingStock.date || '';
       const rows: StockRow[] = [];

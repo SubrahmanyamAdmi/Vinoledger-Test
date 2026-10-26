@@ -20,37 +20,6 @@
         (ngModelChange)="selectCustomer()"
       ></app-select>
     </div>
-
-    <div *ngIf="selectedCustomer" class="add-invoice-section">
-      <button class="add-invoice-btn" (click)="toggleAddForm()">Add New</button>
-    </div>
-  </div>
-
-  <!-- Add Invoice Form -->
-  <div class="add-form" *ngIf="showAddForm && selectedCustomer">
-    <h3>Add New Invoice</h3>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Date</label>
-        <app-date-input [(ngModel)]="newInvoice.date" [min]="selectedCustomer.openingDate || null" ariaLabel="Invoice date"></app-date-input>
-      </div>
-      <div class="form-group">
-        <label>Reference No.</label>
-        <input type="text" [(ngModel)]="newInvoice.referenceNo" placeholder="INV-001" class="form-control">
-      </div>
-      <div class="form-group full-width">
-        <label>Amount</label>
-        <input type="number" [(ngModel)]="newInvoice.amount" placeholder="0.00" class="form-control">
-      </div>
-      <div class="form-group full-width">
-        <label>Description</label>
-        <textarea [(ngModel)]="newInvoice.description" class="form-control" rows="3" placeholder="Invoice description..."></textarea>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn-submit" (click)="addInvoice()">Add Invoice</button>
-      <button class="btn-cancel" (click)="toggleAddForm()">Cancel</button>
-    </div>
   </div>
 
   <!-- Invoices Table -->

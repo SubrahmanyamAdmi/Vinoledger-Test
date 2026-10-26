@@ -1,0 +1,268 @@
+:host {
+  font-family: 'Inter', sans-serif;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 20px;
+  background: rgba(11, 27, 51, 0.56);
+  backdrop-filter: blur(3px);
+}
+
+.app-dialog {
+  --dialog-accent: var(--vl-champagne);
+  width: min(100%, 520px);
+  max-height: min(88vh, 760px);
+  overflow-y: auto;
+  border: 1px solid var(--vl-border);
+  border-top: 4px solid var(--dialog-accent);
+  border-radius: 18px;
+  background: var(--vl-white);
+  box-shadow: 0 24px 64px rgba(11, 27, 51, 0.3);
+  color: var(--vl-text-primary);
+  animation: dialog-enter 160ms ease-out;
+}
+
+.dialog-warning,
+.dialog-error {
+  --dialog-accent: var(--vl-danger);
+}
+
+.dialog-success {
+  --dialog-accent: var(--vl-success);
+}
+
+.dialog-info {
+  --dialog-accent: var(--vl-navy-light);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 24px 0;
+}
+
+.dialog-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--vl-champagne-light);
+  color: var(--vl-navy);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.dialog-warning .dialog-mark,
+.dialog-error .dialog-mark {
+  background: rgba(185, 74, 72, 0.1);
+  color: var(--vl-danger);
+}
+
+.dialog-success .dialog-mark {
+  background: rgba(63, 125, 90, 0.12);
+  color: var(--vl-success);
+}
+
+.dialog-info .dialog-mark {
+  background: rgba(20, 37, 61, 0.08);
+  color: var(--vl-navy);
+}
+
+.dialog-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--vl-border);
+  border-radius: 10px;
+  background: var(--vl-white);
+  color: var(--vl-text-secondary);
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  border-color: var(--vl-champagne);
+  color: var(--vl-navy);
+}
+
+.dialog-content {
+  padding: 16px 24px 22px;
+}
+
+.dialog-type {
+  color: var(--vl-warning);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dialog-warning .dialog-type,
+.dialog-error .dialog-type {
+  color: var(--vl-danger);
+}
+
+.dialog-success .dialog-type {
+  color: var(--vl-success);
+}
+
+.dialog-info .dialog-type {
+  color: var(--vl-navy-light);
+}
+
+.dialog-content h2 {
+  margin: 7px 0 8px;
+  color: var(--vl-navy);
+  font: 600 1.65rem/1.2 'Playfair Display', serif;
+}
+
+.dialog-content p {
+  margin: 0;
+  color: var(--vl-text-secondary);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.dialog-details {
+  display: grid;
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 8px 16px;
+  border: 1px solid var(--vl-border);
+  border-radius: 12px;
+  background: var(--vl-ivory);
+}
+
+.dialog-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--vl-border);
+}
+
+.dialog-detail:last-child {
+  border-bottom: 0;
+}
+
+.dialog-detail dt {
+  color: var(--vl-text-secondary);
+}
+
+.dialog-detail dd {
+  margin: 0;
+  color: var(--vl-navy);
+  font-weight: 700;
+  text-align: right;
+}
+
+.dialog-detail-total dt,
+.dialog-detail-total dd {
+  color: var(--vl-navy);
+  font-weight: 800;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 22px;
+  border-top: 1px solid rgba(229, 222, 208, 0.7);
+  background: rgba(248, 246, 240, 0.58);
+}
+
+.dialog-button {
+  min-height: 44px;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.dialog-button:hover {
+  transform: translateY(-1px);
+}
+
+.dialog-button:focus-visible,
+.dialog-close:focus-visible {
+  outline: 3px solid var(--vl-champagne);
+  outline-offset: 2px;
+}
+
+.dialog-button-secondary {
+  border: 1px solid var(--vl-border);
+  background: var(--vl-white);
+  color: var(--vl-text-primary);
+}
+
+.dialog-button-primary {
+  border: 1px solid var(--vl-navy);
+  background: var(--vl-navy);
+  color: var(--vl-white);
+  box-shadow: 0 5px 12px rgba(11, 27, 51, 0.16);
+}
+
+.dialog-warning .dialog-button-primary,
+.dialog-error .dialog-button-primary {
+  border-color: var(--vl-danger);
+  background: var(--vl-danger);
+}
+
+.dialog-success .dialog-button-primary {
+  border-color: var(--vl-success);
+  background: var(--vl-success);
+}
+
+@keyframes dialog-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 480px) {
+  .dialog-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .app-dialog {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 16px;
+  }
+
+  .dialog-header {
+    padding: 18px 18px 0;
+  }
+
+  .dialog-content {
+    padding: 14px 18px 18px;
+  }
+
+  .dialog-actions {
+    padding: 14px 18px 18px;
+  }
+
+  .dialog-actions:has(.dialog-button-secondary) > .dialog-button {
+    flex: 1;
+  }
+
+  .dialog-detail {
+    gap: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-dialog {
+    animation: none;
+  }
+}

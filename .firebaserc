@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "vino-ledger-ff60f",
+    "dev": "vino-ledger-ff60f",
+    "prod": "vino-ledger-prod"
+  }
+}

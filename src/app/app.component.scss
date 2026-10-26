@@ -15,6 +15,25 @@
 	min-width: 0;
 }
 
+@media print {
+	app-shell-header,
+	.admin-sidebar,
+	.bottom-tabbar,
+	.route-loader {
+		display: none !important;
+	}
+
+	.app-frame.with-owner-header {
+		padding-top: 0;
+	}
+}
+
+.route-loader {
+	min-height: 320px;
+	display: grid;
+	place-content: center;
+}
+
 .app-frame.with-admin-sidebar,
 .app-frame.with-desktop-sidebar {
 	display: flex;

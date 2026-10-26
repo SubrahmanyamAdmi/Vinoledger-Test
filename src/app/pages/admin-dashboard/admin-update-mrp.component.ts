@@ -2,27 +2,21 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { getAuth } from 'firebase/auth';
 import { AuthService } from '../../services/auth.service';
-import { FirestoreService } from '../../services/firestore.service';
 import { BusinessDataService } from '../../services/business-data.service';
-import { environment } from '../../../environments/environment';
+import { MrpCatalogBrand, MrpCatalogService, MrpOverrideSummaryItem, countOverridesByShop } from '../../services/mrp-catalog.service';
 import * as XLSX from 'xlsx';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
+import { AppDialogService } from '../../shared/dialog/app-dialog.service';
 import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 
-interface MRPBrand {
-  brand: string;
-  code: string;
-  codes?: string[];
-  category?: string;
-  sizes: { size: string; sizeCode?: string; sizeMl?: number; mrp: number; bottlesPerCase?: number }[];
-}
+type MRPBrand = MrpCatalogBrand;
 
 @Component({
   selector: 'app-admin-update-mrp',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent, AppSelectComponent],
   templateUrl: './admin-update-mrp.component.html',
   styleUrls: ['./admin-update-mrp.component.scss', './admin-page-theme.scss']
 })
@@ -46,14 +40,39 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
 
   shops: Array<{ id: string; name: string; owner: string }> = [];
   selectedShopId = '';
+  readonly overrideScope = '__overrides__';
+  scope = '';
+  overrideItems: MrpOverrideSummaryItem[] = [];
   loadingShops = false;
+  resettingOverrides = false;
+  copySource = '';
+  copyTargets: string[] = [];
+  copyReplace = false;
+  copying = false;
   private shopChangedKeys = new Set<string>();
+
+  get overrideView(): boolean {
+    return this.scope === this.overrideScope;
+  }
 
   get shopOptions(): AppSelectOption[] {
     return [
       { value: '', label: 'Global catalog' },
+      { value: this.overrideScope, label: 'Override MRP' },
       ...this.shops.map((shop) => ({ value: shop.id, label: `${shop.id} - ${shop.name}` })),
     ];
+  }
+
+  get filteredOverrideItems(): MrpOverrideSummaryItem[] {
+    const term = this.normalizeSearch(this.search);
+    if (term.length < 4) return this.overrideItems;
+    return this.overrideItems.filter((item) =>
+      [item.brand, item.code, ...item.codes].some((label) => this.normalizeSearch(label).includes(term)));
+  }
+
+  get globalOnlyRows(): Array<{ brand: MRPBrand; size: MRPBrand['sizes'][number] }> {
+    const overridden = new Set(this.overrideItems.map((item) => this.mrpRowKey(item, { sizeCode: item.sizeCode, sizeMl: item.sizeMl, size: item.size })));
+    return this.mrpRows.filter((row) => !overridden.has(this.mrpRowKey(row.brand, row.size)));
   }
 
   get isAdmin(): boolean {
@@ -73,10 +92,12 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
   constructor(
     public auth: AuthService,
     private router: Router,
-    private firestore: FirestoreService,
-    private businessData: BusinessDataService
+    private businessData: BusinessDataService,
+    private mrpCatalog: MrpCatalogService,
+    private dialog: AppDialogService
   ) {
     this.selectedShopId = this.isAdmin ? '' : (this.auth.currentUser()?.shopId || '');
+    this.scope = this.selectedShopId;
     if (this.isAdmin) {
       this.loadStoredBrands();
       return;
@@ -95,7 +116,127 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
     });
   }
 
+  get overriddenCount(): number {
+    return this.shopChangedKeys.size;
+  }
+
+  get overrideShopCount(): number {
+    return new Set(this.overrideItems.flatMap((item) => item.groups.flatMap((group) => group.shopIds))).size;
+  }
+
+  async resetToGlobal() {
+    if (!this.canEditMrp || !this.selectedShopId) return;
+    const confirmed = await this.dialog.show({
+      type: 'warning',
+      title: 'Reset MRP to global?',
+      message: 'All MRP values changed for your shop will be removed and replaced with the global MRP values. This cannot be undone.',
+      details: [{ label: 'Overridden prices', value: String(this.overriddenCount) }],
+      confirmText: 'Reset to Global',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    try {
+      await this.mrpCatalog.resetShopOverrides(this.selectedShopId);
+      await this.loadStoredBrands();
+      this.importError = '';
+      this.importMessage = 'All shop MRP overrides were reset to the global MRP values.';
+    } catch {
+      this.importMessage = '';
+      this.importError = 'The MRP reset could not be completed. Please try again.';
+    }
+  }
+
+  async copyOverrides() {
+    if (!this.isAdmin || !this.copySource || !this.copyTargets.length || this.copying) return;
+    const targets = this.copyTargets.filter((id) => id !== this.copySource);
+    const plans = await Promise.all(targets.map((id) => this.mrpCatalog.planShopOverrideCopy(this.copySource, id, this.copyReplace)));
+    const confirmed = await this.dialog.show({
+      type: 'warning',
+      title: 'Copy MRP overrides?',
+      message: this.copyReplace
+        ? 'Each target shop will use the source shop overridden MRPs. The target shop\'s own overrides will be replaced. Global MRPs do not change.'
+        : 'Source overridden MRPs will be added to each target shop. A target shop keeps its own overrides. Global MRPs do not change.',
+      details: [
+        { label: 'Source shop', value: this.copySource },
+        { label: 'Target shops', value: targets.join(', ') },
+        { label: 'Prices to apply', value: String(plans.reduce((sum, plan) => sum + plan.copied, 0)) },
+        { label: 'Target prices kept', value: String(plans.reduce((sum, plan) => sum + plan.kept, 0)) },
+      ],
+      confirmText: 'Copy Overrides',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    this.copying = true;
+    try {
+      for (const id of targets) {
+        await this.mrpCatalog.copyShopOverrides(this.copySource, id, this.copyReplace);
+      }
+      this.copyTargets = [];
+      await this.loadStoredBrands();
+      this.importError = '';
+      this.importMessage = `MRP overrides from ${this.copySource} were copied to ${targets.length} shop(s).`;
+    } catch {
+      this.importMessage = '';
+      this.importError = 'The MRP overrides could not all be copied. Please try again.';
+    } finally {
+      this.copying = false;
+    }
+  }
+
+  toggleCopyTarget(id: string) {
+    this.copyTargets = this.copyTargets.includes(id)
+      ? this.copyTargets.filter((target) => target !== id)
+      : [...this.copyTargets, id];
+  }
+
+  onCopySourceChange() {
+    this.copyTargets = this.copyTargets.filter((id) => id !== this.copySource);
+  }
+
+  get copySourceOptions(): AppSelectOption[] {
+    const counts = countOverridesByShop(this.overrideItems);
+    return this.shops.filter((shop) => counts[shop.id])
+      .map((shop) => ({ value: shop.id, label: `${shop.id} - ${shop.name} (${counts[shop.id]} overrides)` }));
+  }
+
+  get copyTargetShops() {
+    return this.shops.filter((shop) => shop.id !== this.copySource);
+  }
+
+  async resetAllShopsToGlobal() {
+    if (!this.isAdmin || !this.overrideView || !this.overrideShopCount || this.resettingOverrides) return;
+    const confirmed = await this.dialog.show({
+      type: 'warning',
+      title: 'Reset all shop MRP overrides?',
+      message: 'All shop-specific MRP values will be removed and every shop will use the global MRP values. This cannot be undone.',
+      details: [
+        { label: 'Shops affected', value: String(this.overrideShopCount) },
+        { label: 'Overridden items', value: String(this.overrideItems.length) },
+      ],
+      confirmText: 'Reset All Shops',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    this.resettingOverrides = true;
+    try {
+      await this.mrpCatalog.resetAllShopOverrides(this.shops.map((shop) => shop.id));
+      await this.loadStoredBrands();
+      this.importError = '';
+      this.importMessage = 'All shop MRP overrides were reset to the global MRP values.';
+    } catch {
+      this.importMessage = '';
+      this.importError = 'The MRP overrides could not all be reset. Please try again.';
+    } finally {
+      this.resettingOverrides = false;
+    }
+  }
+
   onShopChanged() {
+    this.showAddBrandForm = false;
+    this.selectedShopId = this.overrideView ? '' : this.scope;
     this.loadStoredBrands();
   }
 
@@ -132,6 +273,36 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
     };
     reader.onerror = () => { this.importError = 'Could not read the selected workbook.'; input.value = ''; };
     reader.readAsArrayBuffer(file);
+  }
+
+  resultsOpen = false;
+
+  get searchResults(): MRPBrand[] {
+    if (this.normalizeSearch(this.search).length < 3) {
+      return [];
+    }
+    const term = this.normalizeSearch(this.search);
+    return this.brands
+      .filter((item) => [item.brand, item.code, ...(item.codes || []), this.getBrandDisplayLabel(item)]
+        .some((label) => this.normalizeSearch(label).includes(term)))
+      .slice(0, 30);
+  }
+
+  brandPrimaryCode(brand: MRPBrand): string {
+    return (brand.codes && brand.codes.length ? brand.codes[0] : brand.code) || '';
+  }
+
+  searchResultDetails(brand: MRPBrand): string {
+    const sizes = brand.sizes.slice(0, 3).map((size) => `${size.size} · ₹${size.mrp}`);
+    const remaining = brand.sizes.length - sizes.length;
+    return `${sizes.join('  |  ')}${remaining > 0 ? `  |  +${remaining} sizes` : ''}` || 'Size details unavailable';
+  }
+
+  selectSearchResult(brand: MRPBrand) {
+    this.search = this.getBrandDisplayLabel(brand);
+    this.selectedBrandCode = brand.code;
+    this.selectedSizeName = brand.sizes[0]?.size || '';
+    this.resultsOpen = false;
   }
 
   get filteredBrands(): MRPBrand[] {
@@ -176,6 +347,7 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
   }
 
   onSearchChange() {
+    this.resultsOpen = true;
     this.isSearching = true;
 
     if (this.searchDebounceTimer) {
@@ -213,9 +385,9 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
     this.selectedSizeName = this.selectedBrand?.sizes[0]?.size || '';
   }
 
-  updateSelectedMrp() {
+  async updateSelectedMrp() {
     if (!this.selectedSize || !this.canEditMrp) return;
-    localStorage.setItem(this.mrpStorageKey(), JSON.stringify(this.brands));
+    await this.persistBrandCatalog();
     this.importMessage = `${this.selectedBrand?.brand} ${this.selectedSize.size} MRP updated.`;
   }
 
@@ -227,11 +399,9 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
   }
 
   clearMrpCache() {
-    const storageKeys = [
-      this.mrpStorageKey(),
-      'vinoledger.mrp.brands.global',
-      'vinoledger.mrp.brands'
-    ];
+    const storageKeys = this.selectedShopId
+      ? [`vinoledger.mrp.brands.${this.selectedShopId}`]
+      : [this.mrpStorageKey(), 'vinoledger.mrp.brands'];
 
     storageKeys.forEach((key) => {
       if (key) {
@@ -240,7 +410,9 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
     });
 
     this.brands = [];
-    this.importMessage = 'MRP cache cleared. Re-import the Excel file to regenerate the catalog.';
+    this.importMessage = this.selectedShopId
+      ? 'Shop MRP cache cleared. Reload the page to retrieve the saved catalog.'
+      : 'Global MRP cache cleared. Reload the page to retrieve the saved catalog.';
     this.importError = '';
   }
 
@@ -390,217 +562,98 @@ export class AdminUpdateMrpComponent implements OnInit, OnDestroy {
     }
   }
 
-  private mrpDocId(): string {
-    return 'global';
-  }
-
   private mrpStorageKey(): string {
     return 'vinoledger.mrp.brands.global';
   }
 
-  private mrpOverrideStorageKey(): string {
-    return `vinoledger.mrp.overrides.${this.selectedShopId}`;
-  }
-
-  private extractOverrides(brands: MRPBrand[]): MRPBrand[] {
-    let globalBrands: MRPBrand[] = [];
-    try {
-      const parsed = JSON.parse(localStorage.getItem(this.mrpStorageKey()) || '[]');
-      globalBrands = Array.isArray(parsed) ? this.normalizeImportedBrands(parsed) : [];
-    } catch {
-      globalBrands = [];
-    }
-
-    return brands.map((brand) => {
-      const globalBrand = globalBrands.find((candidate) =>
-        this.normalizeSearch(candidate.brand) === this.normalizeSearch(brand.brand) ||
-        [candidate.code, ...(candidate.codes || [])].some((code) =>
-          [brand.code, ...(brand.codes || [])].some((currentCode) => this.normalizeSearch(code) === this.normalizeSearch(currentCode))
-        )
-      );
-      const changedSizes = brand.sizes.filter((size) => {
-        const globalSize = globalBrand?.sizes.find((candidate) =>
-          Number(candidate.sizeMl || this.parseSizeMl(candidate.size)) === Number(size.sizeMl || this.parseSizeMl(size.size))
-        );
-        return !globalSize || Number(globalSize.mrp) !== Number(size.mrp);
-      });
-      return changedSizes.length ? { ...brand, sizes: changedSizes } : null;
-    }).filter((brand): brand is MRPBrand => Boolean(brand));
-  }
-
-  private printGlobalMrpCatalog(label: string, catalog: MRPBrand[] = []) {
-    void label;
-    void catalog;
-  }
+  isLoading = false;
+  private loadingCount = 0;
 
   private async loadStoredBrands() {
-    this.brands = [];
-    const storageKey = this.mrpStorageKey();
-    const savedCatalog = localStorage.getItem(storageKey);
-    const fallbackCatalog = this.isAdmin ? localStorage.getItem('vinoledger.mrp.brands.global') : localStorage.getItem('vinoledger.mrp.brands.global');
-
-    if (savedCatalog) {
-      try {
-        const imported = JSON.parse(savedCatalog);
-        if (Array.isArray(imported) && imported.length) {
-          this.brands = this.mergeBrands(this.normalizeImportedBrands(imported));
-          this.printGlobalMrpCatalog('Loaded from localStorage', this.brands);
-        }
-      } catch {
-        localStorage.removeItem(storageKey);
-      }
-    } else if (fallbackCatalog) {
-      try {
-        const imported = JSON.parse(fallbackCatalog);
-        if (Array.isArray(imported) && imported.length) {
-          this.brands = this.mergeBrands(this.normalizeImportedBrands(imported));
-          this.printGlobalMrpCatalog('Loaded from fallback localStorage', this.brands);
-        }
-      } catch {
-        // Ignore malformed fallback catalog.
-      }
+    this.importError = '';
+    this.loadingCount++;
+    this.isLoading = true;
+    try {
+      this.brands = this.mergeBrands(this.normalizeImportedBrands(
+        await this.mrpCatalog.loadCatalog(this.selectedShopId)
+      ));
+      await this.updateShopChangedKeys();
+      this.overrideItems = this.overrideView ? await this.mrpCatalog.loadOverrideSummary(this.shops.map((shop) => shop.id)) : [];
+    } catch {
+      this.importError = 'Could not load the MRP catalog.';
+    } finally {
+      this.loadingCount--;
+      this.isLoading = this.loadingCount > 0;
     }
-
-    if (this.isFirebaseConfigured()) {
-      try {
-        await this.ensureFirebaseAnonymousSession();
-        const snapshot = await this.firestore.getDocumentOnce<{ brands: MRPBrand[]; shopId?: string }>('mrpCatalog', 'global');
-
-        if (snapshot?.brands && Array.isArray(snapshot.brands) && snapshot.brands.length) {
-          this.brands = this.mergeBrands(this.normalizeImportedBrands(snapshot.brands));
-          localStorage.setItem(storageKey, JSON.stringify(this.brands));
-          this.printGlobalMrpCatalog('Loaded from Firebase catalog', this.brands);
-        }
-      } catch {
-        // Ignore Firebase read failures and keep the local catalog loaded.
-      }
-    }
-
-    if (this.selectedShopId) {
-      const overrideKey = this.mrpOverrideStorageKey();
-      const localOverride = localStorage.getItem(overrideKey);
-      if (localOverride) {
-        try {
-          const overrides = JSON.parse(localOverride);
-          if (Array.isArray(overrides)) {
-            this.brands = this.mergeBrands([...this.brands, ...this.normalizeImportedBrands(overrides)]);
-          }
-        } catch {
-          localStorage.removeItem(overrideKey);
-        }
-      }
-
-      if (this.isFirebaseConfigured()) {
-        try {
-          const snapshot = await this.firestore.getDocumentOnce<{ brands: MRPBrand[] }>('mrpCatalogOverrides', this.selectedShopId);
-          if (Array.isArray(snapshot?.brands) && snapshot.brands.length) {
-            this.brands = this.mergeBrands([...this.brands, ...this.normalizeImportedBrands(snapshot.brands)]);
-            localStorage.setItem(overrideKey, JSON.stringify(snapshot.brands));
-          }
-        } catch {
-          // Keep the global catalog and any local overrides when the override read fails.
-        }
-      }
-    }
-
-    this.updateShopChangedKeys();
   }
 
   private async persistBrandCatalog() {
     this.brands = this.mergeBrands(this.normalizeImportedBrands(this.brands));
-    if (this.selectedShopId) {
-      const overrides = this.extractOverrides(this.brands);
-      localStorage.setItem(this.mrpOverrideStorageKey(), JSON.stringify(overrides));
-      this.updateShopChangedKeys();
-      if (!this.isFirebaseConfigured()) return;
-
-      try {
-        await this.ensureFirebaseAnonymousSession();
-        await this.firestore.setDocument('mrpCatalogOverrides', this.selectedShopId, {
-          shopId: this.selectedShopId,
-          brands: overrides
-        });
-        this.importError = '';
-      } catch {
-        this.importError = 'Saved locally, but Firebase shop override sync failed.';
-      }
-      return;
-    }
-
-    const storageKey = this.mrpStorageKey();
-    localStorage.setItem(storageKey, JSON.stringify(this.brands));
-    this.shopChangedKeys.clear();
-
-    if (!this.isFirebaseConfigured()) {
-      return;
-    }
-
     try {
-      await this.ensureFirebaseAnonymousSession();
-      const catalogIds = [this.mrpDocId()];
-      const firestoreCatalog = this.brands.map((brand) => ({
-        brand: String(brand.brand || '').trim(),
-        code: String(brand.code || '').trim(),
-        codes: (brand.codes || []).map((code) => String(code || '').trim()).filter(Boolean),
-        category: brand.category ? String(brand.category).trim() : '',
-        sizes: (brand.sizes || []).map((size) => ({
-          size: String(size.size || '').trim(),
-          sizeCode: size.sizeCode ? String(size.sizeCode).trim() : '',
-          sizeMl: Number(size.sizeMl ?? 0),
-          mrp: Number(size.mrp ?? 0)
-        })).filter((size) => size.size && Number.isFinite(size.mrp))
-      })).filter((brand) => brand.brand && brand.code && brand.sizes.length);
-
-      for (const docId of catalogIds) {
-        await this.firestore.setDocument('mrpCatalog', docId, {
-          shopId: this.isAdmin ? 'global' : (this.selectedShopId || 'global'),
-          brands: firestoreCatalog,
-          updatedAt: new Date().toISOString()
-        });
+      if (this.selectedShopId) {
+        await this.mrpCatalog.saveShopOverrides(this.selectedShopId, this.brands);
+      } else {
+        await this.mrpCatalog.saveGlobalCatalog(this.brands);
       }
-
       this.importError = '';
     } catch {
-      this.importError = 'Saved locally, but Firebase sync failed.';
+      this.importError = 'The MRP update could not be synchronized. No changes were saved.';
+      throw new Error(this.importError);
     }
+    await this.loadStoredBrands();
   }
 
   isShopChanged(row: { brand: MRPBrand; size: MRPBrand['sizes'][number] }) {
     return this.shopChangedKeys.has(this.mrpRowKey(row.brand, row.size));
   }
 
-  private updateShopChangedKeys() {
+  private globalMrpByKey = new Map<string, number>();
+
+  async resetRowToGlobal(row: { brand: MRPBrand; size: MRPBrand['sizes'][number] }) {
+    const globalMrp = this.globalMrpByKey.get(this.mrpRowKey(row.brand, row.size));
+    if (globalMrp === undefined || !this.selectedShopId) return;
+    const confirmed = await this.dialog.show({
+      type: 'warning',
+      title: 'Reset this MRP?',
+      message: 'The shop MRP for this item will be replaced with the global MRP.',
+      details: [
+        { label: 'Item', value: `${row.brand.brand} ${row.size.size}` },
+        { label: 'Current MRP', value: `₹${row.size.mrp}` },
+        { label: 'Global MRP', value: `₹${globalMrp}` },
+      ],
+      confirmText: 'Reset',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    row.size.mrp = globalMrp;
+    try {
+      await this.persistBrandCatalog();
+      this.importMessage = `${row.brand.brand} ${row.size.size} MRP reset to global.`;
+    } catch {
+      await this.loadStoredBrands();
+    }
+  }
+
+  private async updateShopChangedKeys() {
     this.shopChangedKeys.clear();
+    this.globalMrpByKey.clear();
     if (!this.selectedShopId) return;
 
-    this.extractOverrides(this.brands).forEach((brand) => {
-      brand.sizes.forEach((size) => this.shopChangedKeys.add(this.mrpRowKey(brand, size)));
-    });
+    const globalBrands = await this.mrpCatalog.loadCatalog();
+    const globalMrpByKey = this.globalMrpByKey;
+    globalBrands.forEach((brand) => brand.sizes.forEach((size) => {
+      globalMrpByKey.set(this.mrpRowKey(brand, size), Number(size.mrp));
+    }));
+    this.brands.forEach((brand) => brand.sizes.forEach((size) => {
+      if (globalMrpByKey.get(this.mrpRowKey(brand, size)) !== Number(size.mrp)) {
+        this.shopChangedKeys.add(this.mrpRowKey(brand, size));
+      }
+    }));
   }
 
-  private mrpRowKey(brand: MRPBrand, size: MRPBrand['sizes'][number]) {
-    return `${this.normalizeSearch(brand.brand)}|${this.normalizeSearch(size.size)}|${this.normalizeSearch(size.sizeCode || String(size.sizeMl || ''))}`;
-  }
-
-  private async ensureFirebaseAnonymousSession() {
-    const auth = getAuth();
-    if (auth.currentUser) {
-      return;
-    }
-
-    // Avoid forcing anonymous auth because Firebase projects can reject it with
-    // ADMIN_ONLY_OPERATION when anonymous sign-in is not enabled.
-  }
-
-  private isFirebaseConfigured() {
-    const config = environment.firebaseConfig;
-    return Boolean(
-      config.apiKey &&
-      config.appId &&
-      config.projectId &&
-      config.apiKey !== 'YOUR_API_KEY' &&
-      config.projectId !== 'YOUR_PROJECT_ID'
-    );
+  private mrpRowKey(brand: { code: string }, size: { size?: string; sizeCode?: string; sizeMl?: number }) {
+    return `${this.normalizeSearch(brand.code)}|${this.normalizeSearch(size.sizeCode || String(size.sizeMl || size.size || ''))}`;
   }
 
   private parseWorkbookRows(rows: Record<string, unknown>[]): MRPBrand[] {

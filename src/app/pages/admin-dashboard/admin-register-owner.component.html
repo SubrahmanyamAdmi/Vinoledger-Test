@@ -51,9 +51,22 @@
       </div>
     </section>
 
+    <section class="form-section">
+      <div class="section-heading"><span>04</span><div><h2>MRP setup</h2><p>Global MRP is the default. Choose Override MRP to start with another shop's overridden prices.</p></div></div>
+      <div class="field-grid">
+        <label>MRP type
+          <app-select name="mrpMode" ariaLabel="MRP type" [options]="mrpModeOptions" [(ngModel)]="mrpMode" (ngModelChange)="mrpSourceShopId = ''"></app-select>
+        </label>
+        <label *ngIf="mrpMode === 'override'">Source shop
+          <app-select name="mrpSource" ariaLabel="Source shop" [options]="mrpSourceOptions" [(ngModel)]="mrpSourceShopId" placeholder="Select a shop with overrides"></app-select>
+        </label>
+      </div>
+      <p class="mrp-note" *ngIf="mrpMode === 'override'">Only the source shop's overridden MRPs are copied. All other items use the global MRP.</p>
+    </section>
+
     <div class="form-footer">
       <p class="error" *ngIf="error">{{ error }}</p>
-      <div><button type="button" class="secondary-btn" (click)="reset()">Clear form</button><button type="submit" class="primary-btn" [disabled]="registrationForm.invalid">Register shop and generate access</button></div>
+      <div><button type="button" class="secondary-btn" (click)="reset()">Clear form</button><button type="submit" class="primary-btn" [disabled]="registrationForm.invalid || (mrpMode === 'override' && !mrpSourceShopId)">Register shop and generate access</button></div>
     </div>
   </form>
 
@@ -61,6 +74,7 @@
     <div class="success-mark">✓</div>
     <p class="eyebrow">Registration complete</p>
     <h2>{{ shopId.toUpperCase() }} is ready for account management</h2>
+    <p class="warning-note" *ngIf="mrpWarning">{{ mrpWarning }}</p>
     <p class="success-copy">Save these credentials securely. The owner and cashiers can use them to sign in and work with this shop.</p>
     <div class="credential-list">
       <article *ngFor="let credential of credentials" class="credential-card">

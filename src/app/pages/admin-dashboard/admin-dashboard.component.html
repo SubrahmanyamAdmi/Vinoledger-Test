@@ -30,16 +30,6 @@
     </button>
   </section>
 
-  <section class="quick-reports">
-    <div class="section-heading"><div><span class="eyebrow">OPERATIONS</span><h2>Quick reports</h2></div></div>
-    <div class="reports-grid">
-      <article *ngFor="let report of quickReports" class="report-item">
-        <span class="report-icon"><app-icon [name]="report.icon"></app-icon></span>
-        <span class="report-label">{{ report.label }}</span>
-      </article>
-    </div>
-  </section>
-
   <div class="app-footer">
     <p>VinoLedger Administration</p>
   </div>

@@ -2,8 +2,12 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Development/test setup for the current VinoLedger app.
-    // Replace with role-based rules before production deployment.
+    // WARNING: OPEN RULES. Anyone can read and write everything, including
+    // registeredAccounts (passwords and roles). Acceptable only for dev/test.
+    // Roles are not stored in Firebase Auth; they live in Firestore
+    // (registeredAccounts / users). Replace these rules before real production
+    // use, together with the login flow. See
+    // .github/instructions/environments-auth-security.instructions.md
     match /{document=**} {
       allow read, write: if true;
     }

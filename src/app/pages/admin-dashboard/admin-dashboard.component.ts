@@ -28,11 +28,6 @@ export class AdminDashboardComponent {
     { label: 'Day Sheet Entry', route: '/admin/day-sheet-entry', icon: 'calendar' },
   ];
 
-  quickReports: Array<{ label: string; icon: AppIconName }> = [
-    { label: 'Inventory Status', icon: 'bottle' },
-    { label: 'Cash Settlement', icon: 'wallet' },
-  ];
-
   navigateTo(route: string) {
     this.router.navigate([route]);
   }

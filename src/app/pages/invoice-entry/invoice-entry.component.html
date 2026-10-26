@@ -66,13 +66,9 @@
     </div>
   </section>
 
-  <div class="page-loader" *ngIf="isParsingInvoice || isSaving" role="status" aria-live="polite">
-    <div class="page-loader-panel">
-      <span class="page-loader-spinner" aria-hidden="true"></span>
-      <strong>{{ isParsingInvoice ? 'Uploading invoice...' : 'Submitting invoice...' }}</strong>
-      <span>{{ isParsingInvoice ? 'Reading the invoice and preparing its data.' : 'Saving the invoice to Firestore.' }}</span>
-    </div>
-  </div>
+  <app-loader *ngIf="isParsingInvoice || isSaving"
+    [title]="isParsingInvoice ? 'Uploading invoice...' : 'Submitting invoice...'"
+    [message]="isParsingInvoice ? 'Reading the invoice and preparing its data.' : 'Saving the invoice to Firestore.'"></app-loader>
 
   <datalist id="brand-options">
     <option *ngFor="let option of availableBrands" [value]="option.code + ' - ' + option.brand"></option>

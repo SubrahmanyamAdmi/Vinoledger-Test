@@ -1,13 +1,11 @@
 ﻿:host {
   display: block;
-  min-height: 100vh;
   background: var(--vl-ivory);
   color: var(--vl-text-primary);
   font-family: 'Inter', sans-serif;
 }
 
 .shell {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -60,9 +58,11 @@
 }
 
 .content {
-  width: min(650px, calc(100% - 40px));
-  margin: auto;
-  padding: 58px 0;
+  width: 100%;
+  max-width: 1180px;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 24px 0 12px;
 }
 
 .title-row {
@@ -91,7 +91,7 @@
 
 h1 {
   font: 700 clamp(2.2rem, 6vw, 3.7rem) 'Playfair Display', serif;
-  margin: 12px 0 28px;
+  margin: 8px 0 20px;
   color: var(--vl-navy);
 }
 
@@ -99,7 +99,7 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .identity,
@@ -156,14 +156,13 @@ p {
 
 .actions {
   display: flex;
-  flex-direction: column;
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 16px;
 }
 
 .primary,
 .outline {
-  width: 100%;
+  flex: 1;
   padding: 15px;
   border-radius: 10px;
   font-weight: 700;
@@ -210,11 +209,17 @@ p {
 }
 
 footer {
-  margin-top: 18px;
+  margin-top: 8px;
   text-align: center;
   color: var(--vl-text-secondary);
   font-size: .7rem;
   letter-spacing: .14em;
   text-transform: uppercase;
-  padding-bottom: 20px;
+  padding-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  .actions {
+    flex-direction: column;
+  }
 }

@@ -1,5 +1,5 @@
 import { RouterModule, Routes } from '@angular/router';
-import { authGuard } from './guards/auth.guard.guard';
+import { authGuard, loginGuard } from './guards/auth.guard.guard';
 import { roleGuard } from './guards/role.guard.guard';
 import { pendingSheetDateGuard } from './guards/pending-sheet-date.guard';
 import { NgModule } from '@angular/core';
@@ -28,6 +28,7 @@ export const routes: Routes = [
   },
   {
     path: 'login',
+    canActivate: [loginGuard],
     loadComponent: () => import('./login/login.component').then((m) => m.LoginComponent),
   },
   {
@@ -43,11 +44,6 @@ export const routes: Routes = [
   {
     path: 'admin/customers',
     loadComponent: () => import('./pages/admin-dashboard/admin-customers.component').then((m) => m.AdminCustomersComponent),
-    canActivate: [authGuard, roleGuard(['Admin'])],
-  },
-  {
-    path: 'admin/users',
-    loadComponent: () => import('./pages/admin-dashboard/admin-users.component').then((m) => m.AdminUsersComponent),
     canActivate: [authGuard, roleGuard(['Admin'])],
   },
   {
@@ -113,7 +109,7 @@ export const routes: Routes = [
   {
     path: 'mrp-check',
     loadComponent: () => import('./pages/admin-dashboard/admin-update-mrp.component').then((m) => m.AdminUpdateMrpComponent),
-    canActivate: [authGuard],
+    canActivate: [authGuard, roleGuard(['Owner', 'Admin'])],
   },
   {
     path: 'contact-admin',
@@ -144,7 +140,7 @@ export const routes: Routes = [
   {
     path: 'accounting',
     loadComponent: () => import('./pages/accounting-ledger/accounting-ledger.component').then((m) => m.AccountingLedgerComponent),
-    canActivate: [authGuard]
+    canActivate: [authGuard, roleGuard(['Owner'])]
   },
   {
     path: 'reports',

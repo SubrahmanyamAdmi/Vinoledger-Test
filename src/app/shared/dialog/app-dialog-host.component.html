@@ -1,0 +1,50 @@
+<div
+  *ngIf="dialog.activeDialog$ | async as options"
+  class="dialog-backdrop"
+  (click)="close(false)"
+>
+  <section
+    class="app-dialog"
+    [attr.role]="options.type === 'warning' || options.type === 'error' ? 'alertdialog' : 'dialog'"
+    aria-modal="true"
+    [attr.aria-labelledby]="'app-dialog-title'"
+    [attr.aria-describedby]="'app-dialog-message'"
+    [class.dialog-confirmation]="options.type === 'confirmation'"
+    [class.dialog-warning]="options.type === 'warning'"
+    [class.dialog-success]="options.type === 'success'"
+    [class.dialog-error]="options.type === 'error'"
+    [class.dialog-info]="options.type === 'info'"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="dialog-header">
+      <span class="dialog-mark" aria-hidden="true">
+        {{ options.type === 'warning' ? '!' : options.type === 'success' ? '✓' : options.type === 'error' ? '×' : options.type === 'confirmation' ? '?' : 'i' }}
+      </span>
+      <button type="button" class="dialog-close" aria-label="Close dialog" (click)="close(false)">
+        <app-icon name="close"></app-icon>
+      </button>
+    </header>
+
+    <div class="dialog-content">
+      <span class="dialog-type">{{ options.type === 'confirmation' ? 'Please confirm' : options.type }}</span>
+      <h2 id="app-dialog-title">{{ options.title }}</h2>
+      <p id="app-dialog-message">{{ options.message }}</p>
+
+      <dl class="dialog-details" *ngIf="options.details?.length">
+        <div class="dialog-detail" *ngFor="let detail of options.details" [class.dialog-detail-total]="detail.label === 'Total company withdrawal'">
+          <dt>{{ detail.label }}</dt>
+          <dd>{{ detail.value }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <footer class="dialog-actions">
+      <button *ngIf="options.cancelText" type="button" class="dialog-button dialog-button-secondary" (click)="close(false)">
+        {{ options.cancelText }}
+      </button>
+      <button #confirmButton type="button" class="dialog-button dialog-button-primary" (click)="close(true)">
+        {{ options.confirmText || 'OK' }}
+      </button>
+    </footer>
+  </section>
+</div>

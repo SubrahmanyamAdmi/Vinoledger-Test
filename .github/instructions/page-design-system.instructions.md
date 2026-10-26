@@ -90,6 +90,20 @@ Do **not** invent new back/logout markup or class names (`back-dashboard`, `back
 - Resolve the current shop by the authenticated user's `shopId` against the real shops collection first. Prefer the saved shop name and owner details; only use local registered/session/demo records when no real shop record is available. Never let stale demo cache override a real record.
 - Owner route content starts with a page-specific title and concise operational description. Do not repeat shop identity in page-level summary cards when the global header already provides it; retain cards that communicate useful operational metrics.
 
+## Shared dialogs
+
+- Before creating a popup, confirmation, warning, or alert, check for and reuse `src/app/shared/dialog/app-dialog.service.ts` and the app-wide `<app-dialog-host>`; do not add browser `alert()`/`confirm()` calls or page-specific dialogs for these common interactions.
+- Open a dialog through `AppDialogService.show()` with a `type`, `title`, and `message`. Choose the type (`confirmation`, `warning`, `success`, `error`, or `info`) to match the situation and provide contextual `confirmText`/`cancelText` labels. Use optional detail rows for transaction or amount summaries that users must review.
+- Keep the dialog host mounted once in the app shell. Extend the shared dialog API/component when a reusable capability is missing; keep one-off form workflows as page-specific UI only when they need editable controls rather than a common message or decision.
+- For an existing destructive or financial operation, perform its validation before opening the dialog and only persist after the dialog resolves with confirmation.
+
+## Shared loader
+
+- Every loading, saving or uploading state must use the shared `<app-loader>` from `src/app/shared/loader/app-loader.component.ts`. Do not create page-specific spinners, `.page-loader` blocks, or plain "Loading..." text for page-level loading.
+- Pass a short `title` (for example "Loading partners...") and an optional `message`. Use the default full-screen overlay for blocking work (initial page load, saving, uploading) and `[overlay]="false"` for an inline loader inside a content area, table wrapper or route transition.
+- Import `AppLoaderComponent` in the standalone component (or the module) that uses it. Extend the shared loader if a capability is missing instead of copying its styles.
+- Small in-button spinners and per-value placeholders (for example a stat card showing "Loading...") are not page loaders and may stay local.
+
 ## Responsive layout
 
 - Design mobile-first; verify the page at ~375px width and ~1280px width.

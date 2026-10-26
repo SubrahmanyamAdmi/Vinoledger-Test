@@ -1,13 +1,265 @@
-<div class="accounting-page">
-  <header *ngIf="auth.currentUser()?.role !== 'Owner'" class="accounting-header">
-    <strong>VinoLedger</strong>
-    <span>Accounting</span>
-  </header>
-  <main class="page-content vl-page-content">
-    <div class="maintenance-message" role="status">
-      <span class="maintenance-icon" aria-hidden="true">!</span>
-      <h1>Under Maintenance</h1>
-      <p>Accounting is currently under maintenance.</p>
+<main class="accounting-page">
+  <section class="content-wrap vl-page-content">
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">PARTNER MEETING</span>
+        <h1>Accounting</h1>
+        <p>{{ shopName || 'Shop' }} · Printable accounts for the partner meeting.</p>
+      </div>
+      <button class="primary no-print" type="button" (click)="print()" [disabled]="isLoading || invalidRange">
+        <app-icon name="download"></app-icon>
+        <span>Print / Save as PDF</span>
+      </button>
     </div>
-  </main>
-</div>
+
+    <div class="filter-bar no-print">
+      <label>From<app-date-input [(ngModel)]="fromDate" [max]="toDate || today" [useShopOpeningDate]="false" ariaLabel="From date"></app-date-input></label>
+      <label>To<app-date-input [(ngModel)]="toDate" [min]="fromDate" [max]="today" [useShopOpeningDate]="false" ariaLabel="To date"></app-date-input></label>
+    </div>
+    <div class="state-message error no-print" *ngIf="invalidRange" role="alert">The From date must be on or before the To date.</div>
+
+    <nav class="section-tabs no-print desktop-only" aria-label="Accounting sections">
+      <button *ngFor="let section of sections" type="button" class="tab-button" [class.active]="section.id === activeSection" (click)="selectSection(section)">{{ section.label }}</button>
+    </nav>
+
+    <div class="section-cards no-print mobile-only" *ngIf="!mobileSectionOpen" aria-label="Accounting sections">
+      <button *ngFor="let section of sections" type="button" class="section-card" (click)="selectSection(section)">
+        <strong>{{ section.label }}</strong>
+        <span>{{ section.description }}</span>
+      </button>
+    </div>
+
+    <button *ngIf="mobileSectionOpen" class="app-back-btn mobile-only no-print" type="button" (click)="closeMobileSection()">
+      <app-icon name="chevron-left"></app-icon>
+      <span>All sections</span>
+    </button>
+
+    <app-loader *ngIf="isLoading" [overlay]="false" title="Loading accounts..."></app-loader>
+
+    <ng-container *ngIf="!isLoading">
+      <p class="print-title">{{ shopName }} — Partner Meeting Accounts · {{ fromDate | date:'dd MMM yyyy' }} to {{ toDate | date:'dd MMM yyyy' }}</p>
+
+      <div class="report-area" [class.mobile-closed]="!mobileSectionOpen">
+        <section class="report-panel" *ngIf="currentSection.id === 'partners'">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">SECTION 1</span>
+              <h2>Investments &amp; Partner Transactions</h2>
+            </div>
+            <div class="share-total"><span>Total Investment</span><strong>{{ totalInvestment | currency:'INR':'symbol':'1.0-2' }}</strong></div>
+          </div>
+
+          <h3>Partner investments</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Partner</th><th>Joined</th><th>Status</th><th class="num">Profit Share</th><th class="num">Investment</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let partner of data.partners">
+                  <td data-label="Partner">{{ partner.name || '—' }}</td>
+                  <td data-label="Joined">{{ partner.joiningDate | date:'dd MMM yyyy' }}</td>
+                  <td data-label="Status">{{ partner.status }}</td>
+                  <td class="num" data-label="Profit Share">{{ partner.profitShare | number:'1.0-2' }}%</td>
+                  <td class="num" data-label="Investment">{{ partner.investmentAmount | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!data.partners.length"><td colspan="5" class="empty">No partners set up yet.</td></tr>
+              </tbody>
+              <tfoot *ngIf="data.partners.length"><tr><td class="total-label" colspan="3">Total</td><td class="num" data-label="Profit Share">{{ totalProfitShare | number:'1.0-2' }}%</td><td class="num" data-label="Investment">{{ totalInvestment | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+            </table>
+          </div>
+
+          <h3>Partner stock / cash taken (selected dates)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Partner</th><th class="num">Stock Taken</th><th class="num">Cash Taken</th><th class="num">Pending (till date)</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of partnerSummary">
+                  <td data-label="Partner">{{ row.partner.name || '—' }}</td>
+                  <td class="num" data-label="Stock Taken">{{ row.stockTaken | currency:'INR':'symbol':'1.0-2' }}</td>
+                  <td class="num" data-label="Cash Taken">{{ row.cashTaken | currency:'INR':'symbol':'1.0-2' }}</td>
+                  <td class="num" data-label="Pending">{{ row.pending | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!partnerSummary.length"><td colspan="4" class="empty">No partners set up yet.</td></tr>
+              </tbody>
+              <tfoot *ngIf="partnerSummary.length"><tr><td class="total-label">Total</td><td class="num" data-label="Stock Taken">{{ summaryTotals.stockTaken | currency:'INR':'symbol':'1.0-2' }}</td><td class="num" data-label="Cash Taken">{{ summaryTotals.cashTaken | currency:'INR':'symbol':'1.0-2' }}</td><td class="num" data-label="Pending">{{ summaryTotals.pending | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+            </table>
+          </div>
+
+          <h3>Transaction details</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Partner</th><th>Type</th><th>Item / Detail</th><th>Status</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let entry of transactionsInRange">
+                  <td data-label="Date">{{ entry.createdAt | date:'dd MMM yyyy' }}</td>
+                  <td data-label="Partner">{{ entry.partnerName }}</td>
+                  <td data-label="Type">{{ entry.transactionType }}</td>
+                  <td data-label="Item">{{ entry.product || entry.detail || '—' }}</td>
+                  <td data-label="Status">{{ entry.paymentStatus }}</td>
+                  <td class="num" data-label="Amount">{{ entry.amount | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!transactionsInRange.length"><td colspan="6" class="empty">No partner transactions in this period.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Profit distributions (selected dates)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Partner shares</th><th class="num">Total Withdrawn</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let entry of distributionsInRange">
+                  <td data-label="Date">{{ entry.createdAt | date:'dd MMM yyyy' }}</td>
+                  <td data-label="Shares">
+                    <span class="share-line" *ngFor="let share of entry.shares">{{ share.partnerName }} ({{ share.profitShare | number:'1.0-2' }}%): {{ share.amount | currency:'INR':'symbol':'1.0-2' }}</span>
+                  </td>
+                  <td class="num" data-label="Total Withdrawn">{{ entry.amount | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!distributionsInRange.length"><td colspan="3" class="empty">No profit distributions in this period.</td></tr>
+              </tbody>
+              <tfoot *ngIf="distributionsInRange.length"><tr><td class="total-label" colspan="2">Total</td><td class="num" data-label="Total Withdrawn">{{ distributionsTotal | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+            </table>
+          </div>
+        </section>
+
+        <section class="report-panel" *ngIf="currentSection.id === 'expenses'">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">SECTION 2</span>
+              <h2>Expenses</h2>
+            </div>
+            <div class="share-total"><span>Total Expenses</span><strong>{{ expensesTotal | currency:'INR':'symbol':'1.0-2' }}</strong></div>
+          </div>
+
+          <h3>Expenses by category</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Category</th><th class="num">Share</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of expenseCategories">
+                  <td data-label="Category">{{ item.category }}</td>
+                  <td class="num" data-label="Share">{{ item.percentage | number:'1.0-1' }}%</td>
+                  <td class="num" data-label="Amount">{{ item.amount | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!expenseCategories.length"><td colspan="3" class="empty">No expenses in this period.</td></tr>
+              </tbody>
+              <tfoot *ngIf="expenseCategories.length"><tr><td class="total-label" colspan="2">Total</td><td class="num" data-label="Amount">{{ expensesTotal | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+            </table>
+          </div>
+
+          <h3>Expense details</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let entry of expensesInRange">
+                  <td data-label="Date">{{ entry.date | date:'dd MMM yyyy' }}</td>
+                  <td data-label="Category">{{ entry.category }}</td>
+                  <td data-label="Description">{{ entry.description }}</td>
+                  <td class="num" data-label="Amount">{{ entry.amount | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!expensesInRange.length"><td colspan="4" class="empty">No expenses in this period.</td></tr>
+              </tbody>
+              <tfoot *ngIf="expensesInRange.length"><tr><td class="total-label" colspan="3">Total</td><td class="num" data-label="Amount">{{ expensesTotal | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+            </table>
+          </div>
+        </section>
+
+        <section class="report-panel" *ngIf="currentSection.id === 'stock-cash'">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">SECTION 3</span>
+              <h2>Stock &amp; Cash Value</h2>
+            </div>
+            <div class="share-total"><span>Total Company Value</span><strong>{{ companyWorth | currency:'INR':'symbol':'1.0-2' }}</strong></div>
+          </div>
+
+          <ng-container *ngIf="stockCash as snapshot; else noSnapshot">
+            <p class="note">As recorded in the day sheet of {{ snapshot.asOf | date:'dd MMM yyyy' }} (latest submitted on or before {{ toDate | date:'dd MMM yyyy' }}).</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Particulars</th><th class="num">Value</th></tr></thead>
+                <tbody>
+                  <tr><td data-label="Particulars">Present stock value</td><td class="num" data-label="Value">{{ snapshot.stockValue | currency:'INR':'symbol':'1.0-2' }}</td></tr>
+                  <tr><td data-label="Particulars">Present cash value</td><td class="num" data-label="Value">{{ snapshot.cashValue | currency:'INR':'symbol':'1.0-2' }}</td></tr>
+                </tbody>
+                <tfoot><tr><td class="total-label">Total company value</td><td class="num" data-label="Total">{{ companyWorth | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+              </table>
+            </div>
+            <p class="note">Only cash can be withdrawn; stock is shared when the shop closes.</p>
+          </ng-container>
+          <ng-template #noSnapshot><p class="note empty">No submitted day sheet found up to this date.</p></ng-template>
+        </section>
+
+        <section class="report-panel" *ngIf="currentSection.id === 'adjustments'">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">SECTION 4</span>
+              <h2>Discounts / Additional Profit</h2>
+            </div>
+            <div class="share-total"><span>Total Additional Profit</span><strong>{{ benefitsTotal | currency:'INR':'symbol':'1.0-2' }}</strong></div>
+          </div>
+
+          <h3>Summary</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Type</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of benefitCategories"><td data-label="Type">{{ item.name }}</td><td class="num" data-label="Amount">{{ item.amount | currency:'INR':'symbol':'1.0-2' }}</td></tr>
+                <tr *ngIf="!benefitCategories.length"><td colspan="2" class="empty">No additional profit in this period.</td></tr>
+              </tbody>
+              <tfoot *ngIf="benefitCategories.length"><tr><td class="total-label">Total</td><td class="num" data-label="Amount">{{ benefitsTotal | currency:'INR':'symbol':'1.0-2' }}</td></tr></tfoot>
+            </table>
+          </div>
+
+          <h3>Date-wise details</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Type</th><th>Comment</th><th class="num">Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let entry of benefitsInRange">
+                  <td data-label="Date">{{ entry.date | date:'dd MMM yyyy' }}</td>
+                  <td data-label="Type">{{ entry.name }}</td>
+                  <td data-label="Comment">{{ entry.comment || '—' }}</td>
+                  <td class="num" data-label="Amount">{{ entry.amount | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!benefitsInRange.length"><td colspan="4" class="empty">No additional profit in this period.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="report-panel" *ngIf="currentSection.id === 'daily'">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">SECTION 5</span>
+              <h2>Daily Sales, Purchase &amp; Expenses</h2>
+            </div>
+            <div class="share-total"><span>Total Sale</span><strong>{{ dailyTotals.sale | currency:'INR':'symbol':'1.0-2' }}</strong></div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Day</th><th class="num">Sale</th><th class="num">Purchase</th><th class="num">Expenses</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of dailyRowsInRange">
+                  <td data-label="Date">{{ row.date | date:'dd MMM yyyy' }}</td>
+                  <td data-label="Day">{{ row.date | date:'EEEE' }}</td>
+                  <td class="num" data-label="Sale">{{ row.sale | currency:'INR':'symbol':'1.0-2' }}</td>
+                  <td class="num" data-label="Purchase">{{ row.purchase | currency:'INR':'symbol':'1.0-2' }}</td>
+                  <td class="num" data-label="Expenses">{{ row.expenses | currency:'INR':'symbol':'1.0-2' }}</td>
+                </tr>
+                <tr *ngIf="!dailyRowsInRange.length"><td colspan="5" class="empty">No sales, purchases or expenses in this period.</td></tr>
+              </tbody>
+              <tfoot *ngIf="dailyRowsInRange.length"><tr>
+                <td class="total-label" colspan="2">Total</td>
+                <td class="num" data-label="Sale">{{ dailyTotals.sale | currency:'INR':'symbol':'1.0-2' }}</td>
+                <td class="num" data-label="Purchase">{{ dailyTotals.purchase | currency:'INR':'symbol':'1.0-2' }}</td>
+                <td class="num" data-label="Expenses">{{ dailyTotals.expenses | currency:'INR':'symbol':'1.0-2' }}</td>
+              </tr></tfoot>
+            </table>
+          </div>
+        </section>
+      </div>
+    </ng-container>
+  </section>
+</main>

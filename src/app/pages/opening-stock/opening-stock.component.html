@@ -1,10 +1,4 @@
-<div class="page-loader" *ngIf="isCheckingAccess" role="status" aria-live="polite" aria-busy="true">
-  <div class="page-loader-panel">
-    <span class="page-loader-spinner" aria-hidden="true"></span>
-    <strong>Loading opening stock...</strong>
-    <span>Checking access and restoring your saved draft.</span>
-  </div>
-</div>
+<app-loader *ngIf="isCheckingAccess" title="Loading opening stock..." message="Checking access and restoring your saved draft."></app-loader>
 
 <main class="shell" *ngIf="!isCheckingAccess">
   <section class="content vl-page-content">
@@ -111,11 +105,5 @@
     </div>
   </div>
 
-  <div class="page-loader" *ngIf="isSaving" role="status" aria-live="polite">
-    <div class="page-loader-panel">
-      <span class="page-loader-spinner" aria-hidden="true"></span>
-      <strong>Saving opening stock...</strong>
-      <span>Saving the opening stock to Firestore.</span>
-    </div>
-  </div>
+  <app-loader *ngIf="isSaving" title="Saving opening stock..." message="Saving the opening stock to Firestore."></app-loader>
 </main>

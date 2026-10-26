@@ -6,7 +6,6 @@ import { AuthService } from '../../services/auth.service';
 import { BusinessDataService, InvoiceRecord } from '../../services/business-data.service';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
-import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
 
 interface InvoiceCustomer {
   id: string;
@@ -18,7 +17,7 @@ interface InvoiceCustomer {
 @Component({
   selector: 'app-admin-invoices',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent, AppDateInputComponent],
+  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent],
   templateUrl: './admin-invoices.component.html',
   styleUrls: ['./admin-invoices.component.scss', './admin-page-theme.scss']
 })
@@ -27,7 +26,6 @@ export class AdminInvoicesComponent implements OnInit {
 
   selectedCustomerId = '';
   selectedCustomer: any = null;
-  showAddForm = false;
 
   invoices: InvoiceRecord[] = [];
   private allInvoices: InvoiceRecord[] = [];
@@ -40,14 +38,6 @@ export class AdminInvoicesComponent implements OnInit {
       label: `${customer.name} - ${customer.shopId}`,
     }));
   }
-
-  // Add invoice form
-  newInvoice = {
-    date: new Date().toISOString().split('T')[0],
-    referenceNo: '',
-    amount: 0,
-    description: ''
-  };
 
   constructor(private router: Router, public auth: AuthService, private businessData: BusinessDataService) {}
 
@@ -113,7 +103,6 @@ export class AdminInvoicesComponent implements OnInit {
 
   selectCustomer() {
     this.selectedCustomer = this.customers.find((customer) => customer.id === this.selectedCustomerId) || null;
-    this.showAddForm = false;
     this.applySelectedCustomerFilter();
   }
 
@@ -131,57 +120,6 @@ export class AdminInvoicesComponent implements OnInit {
 
   downloadInvoice(invoiceId: string) {
     alert('Downloading invoice ' + invoiceId);
-  }
-
-  toggleAddForm() {
-    this.showAddForm = !this.showAddForm;
-    if (this.showAddForm) {
-      this.resetForm();
-    }
-  }
-
-  async addInvoice() {
-    if (!this.newInvoice.referenceNo || this.newInvoice.amount <= 0) {
-      alert('Please fill all required fields');
-      return;
-    }
-
-    if (!this.selectedCustomer) {
-      alert('Select a shop before adding an invoice');
-      return;
-    }
-
-    const invoice = {
-      id: 'INV-' + Date.now(),
-      date: this.newInvoice.date,
-      referenceNo: this.newInvoice.referenceNo,
-      invoiceNumber: this.newInvoice.referenceNo,
-      amount: this.newInvoice.amount,
-      customer: this.selectedCustomer.name + ' (' + this.selectedCustomer.shopId + ')',
-      shopId: this.selectedCustomer.shopId,
-      description: this.newInvoice.description
-    };
-
-    try {
-      await this.businessData.saveInvoice(invoice);
-      this.allInvoices = [invoice, ...this.allInvoices];
-      localStorage.setItem(this.invoiceStorageKey, JSON.stringify([invoice, ...this.readLegacyInvoices()]));
-      this.applySelectedCustomerFilter();
-      this.resetForm();
-      this.showAddForm = false;
-      alert('Invoice added successfully');
-    } catch {
-      alert('Unable to save invoice. Please try again.');
-    }
-  }
-
-  resetForm() {
-    this.newInvoice = {
-      date: new Date().toISOString().split('T')[0],
-      referenceNo: '',
-      amount: 0,
-      description: ''
-    };
   }
 
   updateTotalAmount() {

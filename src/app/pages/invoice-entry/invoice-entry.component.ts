@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
+import { MrpCatalogService } from '../../services/mrp-catalog.service';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
@@ -24,7 +26,7 @@ type InvoiceRow = {
   sizeOptions: BrandSize[];
   customSize: string;
 };
-@Component({ selector: 'app-invoice-entry', standalone: true, imports: [CommonModule, FormsModule, IconComponent], templateUrl: './invoice-entry.component.html', styleUrls: ['./invoice-entry.component.scss'] })
+@Component({ selector: 'app-invoice-entry', standalone: true, imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent], templateUrl: './invoice-entry.component.html', styleUrls: ['./invoice-entry.component.scss'] })
 export class InvoiceEntryComponent {
   shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{"id":"KKD41","owner":"Y Bathalaswamy"}');
   date = sessionStorage.getItem('vinoledger.date') || new Date().toISOString().slice(0, 10);
@@ -42,7 +44,7 @@ export class InvoiceEntryComponent {
   openingStockExists = false;
   openingStockDate = '';
   openingStockStateLoaded = false;
-  constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService) {
+  constructor(public auth: AuthService, private router: Router, private businessData: BusinessDataService, private mrpCatalog: MrpCatalogService) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'assets/pdf.worker.min.js';
     const user = this.auth.currentUser();
     const shopId = String(user?.role === 'User' ? user.shopId || this.shop.id : this.shop.id || user?.shopId || '').trim();
@@ -53,6 +55,7 @@ export class InvoiceEntryComponent {
       this.openingStockStateLoaded = true;
       return;
     }
+    void this.mrpCatalog.loadCatalog(shopId);
     this.businessData.getOpeningStock(shopId).then((record) => {
       this.openingStockExists = !!record && record.status !== 'draft';
       this.openingStockDate = String(record?.date || '').slice(0, 10);

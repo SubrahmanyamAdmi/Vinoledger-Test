@@ -26,10 +26,7 @@
     </div>
 
     <ng-template #loadingDates>
-      <div class="panel page-loader" role="status" aria-live="polite">
-        <div class="spinner" aria-hidden="true"></div>
-        <p>Loading sheet dates for {{ selectedShop.id || 'the selected shop' }}...</p>
-      </div>
+      <app-loader [overlay]="false" [title]="'Loading sheet dates for ' + (selectedShop.id || 'the selected shop') + '...'"></app-loader>
     </ng-template>
 
     <div class="actions">

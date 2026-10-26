@@ -11,6 +11,8 @@ import { LoginComponent } from './login/login.component';
 import { GenrateDaySheetComponent } from './genrate-day-sheet/genrate-day-sheet.component';
 import { IconComponent } from './shared/icon/icon.component';
 import { AppHeaderComponent } from './shared/app-header/app-header.component';
+import { AppDialogHostComponent } from './shared/dialog/app-dialog-host.component';
+import { AppLoaderComponent } from './shared/loader/app-loader.component';
 
 @NgModule({
   declarations: [
@@ -23,7 +25,9 @@ import { AppHeaderComponent } from './shared/app-header/app-header.component';
     LoginComponent,
     GenrateDaySheetComponent,
     IconComponent,
-    AppHeaderComponent
+    AppHeaderComponent,
+    AppDialogHostComponent,
+    AppLoaderComponent
   ],
   providers: [
     provideAnimationsAsync()

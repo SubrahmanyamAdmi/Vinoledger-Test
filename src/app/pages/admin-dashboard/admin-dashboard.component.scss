@@ -164,32 +164,6 @@ button {
   .item-chevron { width: 18px; height: 18px; flex: none; color: var(--vl-champagne); }
 }
 
-.quick-reports {
-  padding-top: 20px;
-  border-top: 1px solid var(--vl-border);
-}
-
-.reports-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.report-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 64px;
-  padding: 14px 16px;
-  border: 1px solid var(--vl-border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, .72);
-}
-
-.report-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--vl-champagne-light); color: var(--vl-navy); }
-.report-icon app-icon { width: 18px; height: 18px; }
-.report-label { color: var(--vl-text-primary); font-size: .84rem; font-weight: 700; }
-
 .app-footer {
   padding: 16px 0 0;
   border-top: 1px solid var(--vl-border);
@@ -295,5 +269,4 @@ button {
   .section-heading h2 { font-size: 1.35rem; }
   .menu-grid { grid-template-columns: 1fr; gap: 10px; }
   .menu-item { min-height: 72px; padding: 12px; }
-  .reports-grid { grid-template-columns: 1fr; gap: 10px; }
 }

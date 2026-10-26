@@ -6,6 +6,7 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 
 interface CustomerRecord {
   id: string;
@@ -21,7 +22,7 @@ interface CustomerRecord {
 @Component({
   selector: 'app-admin-customers',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent],
   templateUrl: './admin-customers.component.html',
   styleUrls: ['./admin-customers.component.scss', './admin-page-theme.scss']
 })

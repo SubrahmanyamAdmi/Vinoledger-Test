@@ -6,8 +6,10 @@ import { AuthService } from '../../services/auth.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { environment } from '../../../environments/environment';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
+import { AppDialogService } from '../../shared/dialog/app-dialog.service';
 
 interface Partner {
   id: string;
@@ -38,24 +40,47 @@ interface PartnerTransaction {
   createdAt: string;
 }
 
+interface ProfitDistributionShare {
+  partnerId: string;
+  partnerName: string;
+  profitShare: number;
+  amount: number;
+}
+
+interface ProfitDistribution {
+  id: string;
+  amount: number;
+  createdAt: string;
+  shares: ProfitDistributionShare[];
+}
+
 @Component({
   selector: 'app-manage-partners',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent, AppDateInputComponent],
+  imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent, AppSelectComponent, AppDateInputComponent],
   templateUrl: './manage-partners.component.html',
   styleUrls: ['./manage-partners.component.scss']
 })
 export class ManagePartnersComponent implements OnInit {
   shopId = '';
+  readonly today = this.toLocalIsoDate(new Date());
+  readonly shopOpeningDate = this.readShopOpeningDate();
   partnerCount = 0;
   partners: Partner[] = [];
   message = '';
   error = '';
   isSaving = false;
+  isConfirmingDistribution = false;
   isLoading = true;
   isEditing = false;
   showSetupPanel = true;
-  activeTab: 'details' | 'transactions' = 'transactions';
+  activeTab: 'details' | 'transactions' | 'distributions' = 'transactions';
+  mobileTabOpen = false;
+
+  openTab(tab: 'details' | 'transactions' | 'distributions') {
+    this.activeTab = tab;
+    this.mobileTabOpen = true;
+  }
   readonly partnerStatusOptions: AppSelectOption[] = [
     { value: 'Active', label: 'Active' },
     { value: 'Inactive', label: 'Inactive' },
@@ -65,6 +90,8 @@ export class ManagePartnersComponent implements OnInit {
     { value: 'Cash', label: 'Cash' },
   ];
   partnerTransactions: PartnerTransaction[] = [];
+  profitDistributions: ProfitDistribution[] = [];
+  distributionAmount = 0;
   selectedPartnerId: string | null = null;
   selectedPartnerForPopup: { name: string; contact: string; pending: number; items: PartnerTransaction[] } | null = null;
   newTransactionDraft: {
@@ -91,7 +118,8 @@ export class ManagePartnersComponent implements OnInit {
     public auth: AuthService,
     private router: Router,
     private firestore: FirestoreService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private dialog: AppDialogService
   ) {
     this.shopId = String(this.auth.currentUser()?.shopId || this.readSessionShopId());
     this.loadPartners();
@@ -105,6 +133,7 @@ export class ManagePartnersComponent implements OnInit {
 
       if (this.selectedPartnerId && partner) {
         this.activeTab = 'transactions';
+        this.mobileTabOpen = true;
         this.newTransactionDraft.partnerName = partner.name;
         this.newTransactionDraft.partnerContact = partner.mobile;
         this.newTransactionDraft.transactionType = 'Stock Taken';
@@ -200,6 +229,10 @@ export class ManagePartnersComponent implements OnInit {
     return this.auth.currentUser()?.role === 'User';
   }
 
+  get isOwner() {
+    return this.auth.currentUser()?.role === 'Owner';
+  }
+
   get showOwnerDetailsTab() {
     return !this.isCashier;
   }
@@ -236,6 +269,42 @@ export class ManagePartnersComponent implements OnInit {
     return Math.abs(this.totalProfitShare - 100) < 0.01;
   }
 
+  get profitDistributionPreview(): ProfitDistributionShare[] {
+    const amountCents = Math.round(Number(this.distributionAmount) * 100);
+    const validShares = this.partners.every((partner) => Number.isFinite(Number(partner.profitShare)) && Number(partner.profitShare) >= 0);
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || !this.isValidShare || !validShares || !this.partners.length) {
+      return [];
+    }
+
+    const allocations = this.partners.map((partner, index) => {
+      const exactCents = amountCents * (Number(partner.profitShare) || 0) / this.totalProfitShare;
+      const wholeCents = Math.floor(exactCents);
+      return { partner, index, cents: wholeCents, remainder: exactCents - wholeCents };
+    });
+    const remainingCents = amountCents - allocations.reduce((sum, allocation) => sum + allocation.cents, 0);
+    const remainderOrder = [...allocations].sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+    for (let index = 0; index < remainingCents; index++) {
+      remainderOrder[index % remainderOrder.length].cents++;
+    }
+
+    return allocations.map(({ partner, cents }) => ({
+      partnerId: partner.id,
+      partnerName: partner.name,
+      profitShare: Number(partner.profitShare) || 0,
+      amount: cents / 100,
+    }));
+  }
+
+  get canDistributeProfit() {
+    return this.isOwner && !this.isSaving && !this.isConfirmingDistribution && this.partners.length > 0 && this.isValidShare &&
+      this.hasCompletePartnerNames &&
+      this.partners.every((partner) => Number.isFinite(Number(partner.profitShare)) && Number(partner.profitShare) >= 0);
+  }
+
+  get hasCompletePartnerNames() {
+    return this.partners.every((partner) => partner.name.trim());
+  }
+
   createPartnerRows() {
     if (this.isCashier) {
       return;
@@ -250,6 +319,7 @@ export class ManagePartnersComponent implements OnInit {
     this.isEditing = false;
     this.showSetupPanel = false;
     this.activeTab = 'details';
+    this.mobileTabOpen = true;
     this.partners = Array.from({ length: count }, (_, index) => this.partners[index] || this.createPartner(index + 1));
   }
 
@@ -333,7 +403,7 @@ export class ManagePartnersComponent implements OnInit {
     this.error = '';
 
     try {
-      const data = { shopId: this.shopId, partnerCount: this.partners.length, partners: this.partners, partnerTransactions: this.partnerTransactions, updatedAt: new Date().toISOString() };
+      const data = { shopId: this.shopId, partnerCount: this.partners.length, partners: this.partners, partnerTransactions: this.partnerTransactions, profitDistributions: this.profitDistributions, updatedAt: new Date().toISOString() };
       localStorage.setItem(this.storageKey(), JSON.stringify(data));
       if (this.isFirebaseConfigured() && this.shopId) {
         await this.firestore.setDocument('partnerManagement', this.shopId, data);
@@ -344,6 +414,98 @@ export class ManagePartnersComponent implements OnInit {
     }
 
     this.closePartnerTransactionPopup();
+  }
+
+  async saveProfitDistribution() {
+    if (this.isSaving || this.isConfirmingDistribution) {
+      return;
+    }
+    this.error = '';
+    this.message = '';
+    const amountCents = Math.round(Number(this.distributionAmount) * 100);
+
+    if (!this.isOwner) {
+      this.error = 'Only the shop owner can record a profit distribution.';
+      return;
+    }
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+      this.error = 'Enter a valid distribution amount greater than zero.';
+      return;
+    }
+    if (!this.partners.length || !this.partners.every((partner) => partner.name.trim())) {
+      this.error = 'Complete the names of all partners before recording a distribution.';
+      return;
+    }
+    if (!this.partners.every((partner) => Number.isFinite(Number(partner.profitShare)) && Number(partner.profitShare) >= 0) || !this.isValidShare) {
+      this.error = `Partner profit shares must total 100% before distributing. Current total: ${this.totalProfitShare.toFixed(2)}%.`;
+      return;
+    }
+
+    const shares = this.profitDistributionPreview;
+    const amount = amountCents / 100;
+    this.isConfirmingDistribution = true;
+    let confirmed: boolean;
+    try {
+      confirmed = await this.dialog.show({
+        type: 'confirmation',
+        title: 'Confirm profit distribution',
+        message: 'Review the total company withdrawal and each partner’s share before recording this distribution.',
+        confirmText: 'Record distribution',
+        cancelText: 'Review again',
+        details: [
+          ...shares.map((share) => ({
+            label: `${share.partnerName} · ${share.profitShare.toFixed(2)}%`,
+            value: `₹${share.amount.toFixed(2)}`,
+          })),
+          { label: 'Total company withdrawal', value: `₹${amount.toFixed(2)}` },
+        ],
+      });
+    } finally {
+      this.isConfirmingDistribution = false;
+    }
+    if (!confirmed) {
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+    const distribution: ProfitDistribution = {
+      id: `PROFIT-${Date.now()}`,
+      amount,
+      createdAt,
+      shares,
+    };
+    const distributions = [distribution, ...this.profitDistributions];
+    const data = {
+      shopId: this.shopId,
+      partnerCount: this.partners.length,
+      partners: this.partners,
+      partnerTransactions: this.partnerTransactions,
+      profitDistributions: distributions,
+      updatedAt: createdAt,
+    };
+
+    this.isSaving = true;
+    try {
+      localStorage.setItem(this.storageKey(), JSON.stringify(data));
+    } catch {
+      this.error = 'Could not save the profit distribution locally. No distribution was recorded.';
+      this.isSaving = false;
+      return;
+    }
+
+    this.profitDistributions = distributions;
+    this.distributionAmount = 0;
+    this.message = 'Profit distribution recorded successfully.';
+    try {
+      if (this.isFirebaseConfigured() && this.shopId) {
+        await this.firestore.setDocument('partnerManagement', this.shopId, data);
+      }
+    } catch {
+      this.error = 'Firebase sync failed. The profit distribution was saved locally.';
+      this.message = 'Profit distribution saved locally. Firebase sync failed.';
+    } finally {
+      this.isSaving = false;
+    }
   }
 
   updateTransactionPayment(item: PartnerTransaction, paymentValue: number, status: 'Paid' | 'Pending') {
@@ -371,6 +533,7 @@ export class ManagePartnersComponent implements OnInit {
       this.isEditing = true;
       this.showSetupPanel = true;
       this.activeTab = 'details';
+      this.mobileTabOpen = true;
       return;
     }
 
@@ -402,11 +565,11 @@ export class ManagePartnersComponent implements OnInit {
     }
     const invalidIndex = this.partners.findIndex((partner) =>
       !partner.name.trim() || !/^\d{10}$/.test(partner.mobile.replace(/\D/g, '')) ||
-      (partner.email && !/^\S+@\S+\.\S+$/.test(partner.email)) ||
+      (String(partner.email || '').trim() && !/^\S+@\S+\.\S+$/.test(String(partner.email || '').trim())) ||
       Number(partner.investmentAmount) < 0 || Number(partner.profitShare) < 0 || Number(partner.profitShare) > 100
     );
     if (invalidIndex >= 0) {
-      this.error = `Complete Partner ${invalidIndex + 1} with a valid name, 10-digit mobile number, email, and amounts.`;
+      this.error = `Complete Partner ${invalidIndex + 1} with a valid name, 10-digit mobile number, optional valid email, and amounts.`;
       return;
     }
     if (!this.isValidShare) {
@@ -419,6 +582,7 @@ export class ManagePartnersComponent implements OnInit {
       partnerCount: this.partners.length,
       partners: this.partners,
       partnerTransactions: this.partnerTransactions,
+      profitDistributions: this.profitDistributions,
       updatedAt: new Date().toISOString()
     };
 
@@ -463,19 +627,22 @@ export class ManagePartnersComponent implements OnInit {
       this.partnerCount = local.partnerCount;
       this.partners = local.partners;
       this.partnerTransactions = Array.isArray(local.partnerTransactions) ? local.partnerTransactions : [];
+      this.profitDistributions = Array.isArray(local.profitDistributions) ? local.profitDistributions : [];
     }
     if (this.isFirebaseConfigured() && this.shopId) {
       try {
-        const remote = await this.firestore.getDocumentOnce<{ partnerCount: number; partners: Partner[]; partnerTransactions: PartnerTransaction[] }>('partnerManagement', this.shopId);
-        if (remote?.partners?.length || Array.isArray(remote?.partnerTransactions)) {
+        const remote = await this.firestore.getDocumentOnce<{ partnerCount: number; partners: Partner[]; partnerTransactions: PartnerTransaction[]; profitDistributions?: ProfitDistribution[] }>('partnerManagement', this.shopId);
+        if (remote?.partners?.length || Array.isArray(remote?.partnerTransactions) || Array.isArray(remote?.profitDistributions)) {
           this.partnerCount = Number(remote.partnerCount) || remote.partners?.length || this.partnerCount;
           this.partners = remote.partners || this.partners;
           this.partnerTransactions = remote.partnerTransactions || this.partnerTransactions;
+          this.profitDistributions = Array.isArray(remote.profitDistributions) ? remote.profitDistributions : this.profitDistributions;
           localStorage.setItem(this.storageKey(), JSON.stringify({
             shopId: this.shopId,
             partnerCount: this.partnerCount,
             partners: this.partners,
             partnerTransactions: this.partnerTransactions,
+            profitDistributions: this.profitDistributions,
             updatedAt: new Date().toISOString()
           }));
         }
@@ -491,10 +658,25 @@ export class ManagePartnersComponent implements OnInit {
   }
 
   private createPartner(number: number): Partner {
-    return { id: `PARTNER-${number}`, name: '', mobile: '', email: '', joiningDate: new Date().toISOString().slice(0, 10), investmentAmount: 0, profitShare: 0, status: 'Active', notes: '' };
+    return { id: `PARTNER-${number}`, name: '', mobile: '', email: '', joiningDate: this.shopOpeningDate, investmentAmount: 0, profitShare: 0, status: 'Active', notes: '' };
   }
 
-  private readLocalPartners(): { partnerCount: number; partners: Partner[]; partnerTransactions?: PartnerTransaction[] } | null {
+  private readShopOpeningDate(): string {
+    const today = this.toLocalIsoDate(new Date());
+    try {
+      const shop = JSON.parse(sessionStorage.getItem('vinoledger.shop') || '{}');
+      const openingDate = String(shop.openingDate || shop.createdAt || '').slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(openingDate) && openingDate <= today ? openingDate : today;
+    } catch {
+      return today;
+    }
+  }
+
+  private toLocalIsoDate(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  private readLocalPartners(): { partnerCount: number; partners: Partner[]; partnerTransactions?: PartnerTransaction[]; profitDistributions?: ProfitDistribution[] } | null {
     try {
       const saved = JSON.parse(localStorage.getItem(this.storageKey()) || 'null');
       return saved?.partners?.length ? saved : null;

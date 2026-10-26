@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, NgZone, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut as firebaseSignOut, User as FirebaseUser } from 'firebase/auth';
@@ -33,6 +33,10 @@ export interface GeneratedCredential {
   email: string;
 }
 
+export const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'vinoledger.lastActivity';
+const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly apiUrl = '/api/auth';
@@ -48,8 +52,11 @@ export class AuthService {
 
   private readonly auth = getAuth();
   private readonly firestore = getFirestore();
+  private idleCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private lastWrite = 0;
 
   constructor(
+    private ngZone: NgZone,
     private http: HttpClient,
     private router: Router,
     private userService: UserService
@@ -90,13 +97,58 @@ export class AuthService {
     );
   }
 
-  logout() {
+  logout(navigate = true) {
+    this.stopIdleTracking();
     this.tokenSignal.set(null);
     this.currentUserSignal.set(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
     firebaseSignOut(this.auth).catch(() => undefined);
-    this.router.navigate(['/login']);
+    if (navigate) {
+      this.router.navigate(['/login'], { replaceUrl: true });
+    }
+  }
+
+  private startIdleTracking() {
+    this.stopIdleTracking();
+    this.recordActivity(true);
+    this.ngZone.runOutsideAngular(() => {
+      IDLE_EVENTS.forEach((name) => window.addEventListener(name, this.activityHandler, { passive: true }));
+      this.idleCheckTimer = setInterval(() => this.checkIdle(), 15000);
+    });
+  }
+
+  private stopIdleTracking() {
+    if (typeof window === 'undefined') return;
+    IDLE_EVENTS.forEach((name) => window.removeEventListener(name, this.activityHandler));
+    if (this.idleCheckTimer) {
+      clearInterval(this.idleCheckTimer);
+      this.idleCheckTimer = null;
+    }
+  }
+
+  private readonly activityHandler = () => this.recordActivity();
+
+  private recordActivity(force = false) {
+    const now = Date.now();
+    if (force || now - this.lastWrite > 5000) {
+      this.lastWrite = now;
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+    }
+  }
+
+  private isIdleExpired(): boolean {
+    const last = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+    return !!last && Date.now() - last > SESSION_IDLE_TIMEOUT_MS;
+  }
+
+  private checkIdle() {
+    if (this.tokenSignal() && this.isIdleExpired()) {
+      this.ngZone.run(() => {
+        this.logout();
+      });
+    }
   }
 
   hasRole(roles: UserRole | UserRole[]): boolean {
@@ -329,6 +381,7 @@ export class AuthService {
     this.currentUserSignal.set(res.user);
     localStorage.setItem('token', res.token);
     localStorage.setItem('user', JSON.stringify(res.user));
+    this.startIdleTracking();
     if (res.user.shopId) {
       const shop = this.getRegisteredShops().find((registeredShop) => registeredShop.shopId === res.user.shopId);
       if (shop) {
@@ -615,10 +668,15 @@ export class AuthService {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     if (token && userStr) {
+      if (this.isIdleExpired()) {
+        this.logout(false);
+        return;
+      }
       try {
         const user: User = JSON.parse(userStr);
         this.tokenSignal.set(token);
         this.currentUserSignal.set(user);
+        this.startIdleTracking();
       } catch {
         this.logout();
       }

@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { AppIconName } from './shared/icon/icon.component';
 
@@ -25,15 +25,13 @@ const NAV_ITEMS: MobileNavItem[] = [
 
   { label: 'Admin Dashboard', shortLabel: 'Home', icon: 'home', route: '/admin', roles: ['Admin'] },
   { label: 'Customers & Shops', shortLabel: 'Shops', icon: 'store', route: '/admin/customers', roles: ['Admin'] },
-  { label: 'User Management', shortLabel: 'Users', icon: 'person', route: '/admin/users', roles: ['Admin'] },
   { label: 'Register Owner', shortLabel: 'Register', icon: 'partners', route: '/admin/register-owner', roles: ['Admin'] },
   { label: 'Day Sheet Review', shortLabel: 'Day Sheets', icon: 'file', route: '/admin/day-sheet-view', roles: ['Admin'] },
   { label: 'Admin Invoices', shortLabel: 'Invoices', icon: 'receipt', route: '/admin/invoices', roles: ['Admin'] },
   { label: 'Business Flow', shortLabel: 'Flow', icon: 'chart', route: '/admin/business-flow', roles: ['Admin'] },
   { label: 'Update MRP', shortLabel: 'MRP', icon: 'cash', route: '/admin/update-mrp', roles: ['Admin'] },
   { label: 'Day Sheet Entry', shortLabel: 'Entry', icon: 'calendar', route: '/admin/day-sheet-entry', roles: ['Admin'] },
-  { label: 'Shop Management', shortLabel: 'Management', icon: 'settings', route: '/management', roles: ['Admin'] },
-  { label: 'Contact Admin', shortLabel: 'Help', icon: 'support', route: '/contact-admin', roles: ['Owner', 'Admin'] },
+  { label: 'Contact Admin', shortLabel: 'Help', icon: 'support', route: '/contact-admin', roles: ['Owner'] },
 ];
 
 const USER_NAV_ITEMS: MobileNavItem[] = [
@@ -72,8 +70,27 @@ const DESKTOP_SIDEBAR_ITEMS_BY_ROLE: Record<string, MobileNavItem[]> = {
 })
 export class AppComponent {
   title = 'vinoledger';
+  isRouteLoading = true;
+  private shellUrl = typeof window === 'undefined' ? '' : `${window.location.pathname}${window.location.search}`;
 
-  constructor(public auth: AuthService, private router: Router) {}
+  constructor(public auth: AuthService, private router: Router) {
+    if (!this.shellUrl) {
+      this.shellUrl = this.router.url;
+    }
+    this.isRouteLoading = !this.router.navigated;
+    this.router.events.subscribe((event) => {
+      if (event instanceof NavigationStart) {
+        this.shellUrl = event.url;
+        this.isRouteLoading = true;
+      } else if (event instanceof NavigationEnd) {
+        this.shellUrl = event.urlAfterRedirects;
+        this.isRouteLoading = false;
+      } else if (event instanceof NavigationCancel || event instanceof NavigationError) {
+        this.shellUrl = this.router.url;
+        this.isRouteLoading = false;
+      }
+    });
+  }
 
   get mobileNavItems(): MobileNavItem[] {
     const role = this.auth.currentUser()?.role;
@@ -92,26 +109,27 @@ export class AppComponent {
   }
 
   get showAdminSidebar(): boolean {
-    return this.auth.isLoggedIn() && !this.isStandaloneDaySheet && this.auth.currentUser()?.role === 'Admin' && this.router.url !== '/login';
+    return this.auth.isLoggedIn() && !this.isStandaloneDaySheet && this.auth.currentUser()?.role === 'Admin' && this.shellUrl.split(/[?#]/, 1)[0] !== '/login';
   }
 
   get showDesktopSidebar(): boolean {
-    const route = this.router.url.split(/[?#]/, 1)[0];
+    const route = this.shellUrl.split(/[?#]/, 1)[0];
     return this.auth.isLoggedIn() && !this.isStandaloneDaySheet && route !== '/login' && this.desktopSidebarItems.length > 0;
   }
 
   get showMobileNavigation(): boolean {
-    const route = this.router.url.split(/[?#]/, 1)[0];
+    const route = this.shellUrl.split(/[?#]/, 1)[0];
     return this.auth.isLoggedIn() && !this.isStandaloneDaySheet && route !== '/login' && this.mobileNavItems.length > 0;
   }
 
   get showAppHeader(): boolean {
-    const route = this.router.url.split(/[?#]/, 1)[0];
+    const route = this.shellUrl.split(/[?#]/, 1)[0];
     return this.auth.isLoggedIn() && !this.isStandaloneDaySheet && route !== '/login';
   }
 
   get isStandaloneDaySheet(): boolean {
-    return this.router.url.startsWith('/day-sheet?view=standalone') || this.router.url.includes('&view=standalone');
+    const [path, query = ''] = this.shellUrl.split('?');
+    return path === '/day-sheet' && new URLSearchParams(query.split('#', 1)[0]).get('view') === 'standalone';
   }
 
   isActive(route: string): boolean {

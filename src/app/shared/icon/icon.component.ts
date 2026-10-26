@@ -22,6 +22,7 @@ export type AppIconName =
   | 'settings'
   | 'download'
   | 'calendar'
+  | 'reset'
   | 'support';
 
 @Component({
@@ -120,6 +121,10 @@ export type AppIconName =
           <line x1="8" y1="3" x2="8" y2="7" />
           <line x1="16" y1="3" x2="16" y2="7" />
           <line x1="3" y1="10" x2="21" y2="10" />
+        </ng-container>
+        <ng-container *ngSwitchCase="'reset'">
+          <path d="M3 12a9 9 0 1 0 3-6.7" />
+          <polyline points="3 4 3 9 8 9" />
         </ng-container>
         <ng-container *ngSwitchCase="'support'">
           <circle cx="12" cy="12" r="9" />

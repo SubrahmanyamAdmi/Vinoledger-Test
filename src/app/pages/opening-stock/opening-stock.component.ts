@@ -5,8 +5,9 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { BusinessDataService } from '../../services/business-data.service';
-import { FirestoreService } from '../../services/firestore.service';
+import { MrpCatalogService } from '../../services/mrp-catalog.service';
 import { IconComponent } from '../../shared/icon/icon.component';
+import { AppLoaderComponent } from '../../shared/loader/app-loader.component';
 import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
 
 type BrandSize = { size: number; bottlesPerCase: number; mrp: number };
@@ -31,7 +32,7 @@ type OpeningStockRow = {
 @Component({
   selector: 'app-opening-stock',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, AppSelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, AppLoaderComponent, AppSelectComponent],
   templateUrl: './opening-stock.component.html',
   styleUrls: ['./opening-stock.component.scss']
 })
@@ -62,7 +63,7 @@ export class OpeningStockComponent implements OnInit {
     public auth: AuthService,
     private router: Router,
     private businessData: BusinessDataService,
-    private firestore: FirestoreService
+    private mrpCatalog: MrpCatalogService
   ) {
     this.catalogSync = this.syncMrpCatalogFromFirebase().then(() => {
       this.brandOptionsCache = null;
@@ -635,17 +636,7 @@ export class OpeningStockComponent implements OnInit {
     }
 
     try {
-      const [globalDoc, overrideDoc] = await Promise.all([
-        this.firestore.getDocumentOnce<{ brands?: any[] }>('mrpCatalog', 'global'),
-        this.firestore.getDocumentOnce<{ brands?: any[] }>('mrpCatalogOverrides', activeShopId)
-      ]);
-      const mergedBrands = this.mergeMrpCatalogs([
-        Array.isArray(globalDoc?.brands) ? globalDoc.brands : [],
-        Array.isArray(overrideDoc?.brands) ? overrideDoc.brands : []
-      ]);
-      if (mergedBrands.length) {
-        localStorage.setItem(`vinoledger.mrp.brands.${activeShopId}`, JSON.stringify(mergedBrands));
-      }
+      await this.mrpCatalog.loadCatalog(activeShopId);
     } catch {
       // Keep cached and built-in catalog data available when Firebase is offline.
     }

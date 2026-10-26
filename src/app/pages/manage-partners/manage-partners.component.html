@@ -1,9 +1,6 @@
 <main class="partners-page">
   <section class="content-wrap vl-page-content">
-    <div class="page-loader" *ngIf="isLoading" aria-live="polite" aria-busy="true">
-      <div class="loader-spinner"></div>
-      <p>Loading partners...</p>
-    </div>
+    <app-loader *ngIf="isLoading" title="Loading partners..."></app-loader>
 
     <ng-container *ngIf="!selectedPartner && !isLoading">
       <div class="page-heading">
@@ -39,11 +36,12 @@
       </section>
       <div class="state-message" *ngIf="!partners.length && isCashier">No partner records are available for this shop.</div>
 
-      <section class="partners-panel" *ngIf="partners.length && !isLoading">
-        <div class="panel-heading" *ngIf="!isCashier || activeTab === 'details'">
+      <section class="partners-panel" [class.mobile-closed]="!mobileTabOpen" *ngIf="partners.length && !isLoading">
+        <button type="button" class="mobile-back" (click)="mobileTabOpen = false">← All sections</button>
+        <div class="panel-heading" *ngIf="activeTab !== 'distributions' && (!isCashier || activeTab === 'details')">
           <div>
-            <span class="eyebrow">PARTNER DETAILS</span>
-            <h2>{{ partners.length }} Partner{{ partners.length === 1 ? '' : 's' }}</h2>
+                    <span class="eyebrow">PARTNER DETAILS</span>
+                    <h2>{{ partners.length + ' Partner' + (partners.length === 1 ? '' : 's') }}</h2>
           </div>
           <div class="share-total" [class.invalid]="!isValidShare">
             <span>Total Profit Share</span>
@@ -52,8 +50,9 @@
         </div>
 
         <div class="tab-row" role="tablist" aria-label="Partner tabs">
-          <button type="button" class="tab-button" [class.active]="activeTab === 'transactions'" (click)="activeTab = 'transactions'">Partner Transaction Details</button>
-          <button *ngIf="showOwnerDetailsTab" type="button" class="tab-button" [class.active]="activeTab === 'details'" (click)="activeTab = 'details'">Partner Details</button>
+          <button type="button" class="tab-button" [class.active]="activeTab === 'transactions'"           (click)="openTab('transactions')">Partner Transaction Details</button>
+                    <button *ngIf="showOwnerDetailsTab" type="button" class="tab-button" [class.active]="activeTab === 'details'" (click)="openTab('details')">Partner Details</button>
+                    <button *ngIf="isOwner" type="button" class="tab-button" [class.active]="activeTab === 'distributions'" (click)="openTab('distributions')">Profit Distributions</button>
         </div>
 
         <div *ngIf="activeTab === 'transactions'" class="tab-panel transactions-panel">
@@ -72,6 +71,64 @@
               </div>
             </article>
           </div>
+        </div>
+
+        <div *ngIf="activeTab === 'distributions' && isOwner" class="tab-panel">
+          <section class="setup-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">COMPANY WITHDRAWAL</span>
+                <h2>Distribute company profit</h2>
+                <p>Enter the total amount approved for withdrawal. It will be split using the saved profit-share percentages and recorded separately from cashier pending balances.</p>
+              </div>
+              <div class="share-total" [class.invalid]="!isValidShare"><span>Shares</span><strong>{{ totalProfitShare | number:'1.0-2' }}%</strong></div>
+            </div>
+
+            <label for="distribution-amount">
+              Total withdrawal amount (₹)
+              <input id="distribution-amount" type="number" min="0.01" step="0.01" [(ngModel)]="distributionAmount" placeholder="e.g. 5000000" />
+            </label>
+
+            <div class="side-card" *ngIf="profitDistributionPreview.length">
+              <h3>Proposed partner split</h3>
+              <div class="side-row" *ngFor="let share of profitDistributionPreview">
+                <span>{{ share.partnerName }} <small>{{ share.profitShare | number:'1.0-2' }}%</small></span>
+                <strong>₹{{ share.amount | number:'1.2-2' }}</strong>
+              </div>
+              <div class="side-row">
+                <span>Total company withdrawal</span>
+                <strong>₹{{ distributionAmount | number:'1.2-2' }}</strong>
+              </div>
+            </div>
+            <p class="hint" *ngIf="!hasCompletePartnerNames">Complete all partner names before preparing a distribution.</p>
+            <p class="hint" *ngIf="hasCompletePartnerNames && !isValidShare">Save partner shares totalling 100% before preparing a distribution.</p>
+            <button class="primary" type="button" [disabled]="!canDistributeProfit || !profitDistributionPreview.length || !(distributionAmount > 0)" (click)="saveProfitDistribution()">
+              {{ isSaving ? 'Recording...' : isConfirmingDistribution ? 'Opening review...' : 'Review and record distribution' }}
+            </button>
+          </section>
+
+          <section class="setup-panel" aria-labelledby="distribution-history-title">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">AUDIT HISTORY</span>
+                <h2 id="distribution-history-title">Recorded distributions</h2>
+              </div>
+            </div>
+            <p class="hint" *ngIf="!profitDistributions.length">No profit distributions have been recorded for this shop.</p>
+            <article class="side-card" *ngFor="let distribution of profitDistributions">
+              <div class="side-row">
+                <div>
+                  <span>{{ distribution.createdAt | date:'dd MMM yyyy, h:mm a' }}</span>
+                  <small>Distribution reference: {{ distribution.id }}</small>
+                </div>
+                <strong>₹{{ distribution.amount | number:'1.2-2' }}</strong>
+              </div>
+              <div class="side-row" *ngFor="let share of distribution.shares">
+                <span>{{ share.partnerName }} <small>{{ share.profitShare | number:'1.0-2' }}%</small></span>
+                <strong>₹{{ share.amount | number:'1.2-2' }}</strong>
+              </div>
+            </article>
+          </section>
         </div>
 
         <div *ngIf="activeTab === 'details'" class="tab-panel">
@@ -104,7 +161,7 @@
                 <label>Name<input type="text" [(ngModel)]="partner.name" [disabled]="!isEditing" placeholder="Partner name" /></label>
                 <label>Mobile Number<input type="tel" [(ngModel)]="partner.mobile" [disabled]="!isEditing" placeholder="10-digit mobile number" /></label>
                 <label>Email<input type="email" [(ngModel)]="partner.email" [disabled]="!isEditing" placeholder="partner@example.com" /></label>
-                <label>Joining Date<app-date-input [(ngModel)]="partner.joiningDate" [disabled]="!isEditing" ariaLabel="Partner joining date"></app-date-input></label>
+                <label>Joining Date<app-date-input [(ngModel)]="partner.joiningDate" [min]="shopOpeningDate" [max]="today" [disabled]="!isEditing" ariaLabel="Partner joining date"></app-date-input></label>
                 <label>Investment Amount<input type="number" min="0" step="0.01" [(ngModel)]="partner.investmentAmount" [disabled]="!isEditing" placeholder="0.00" /></label>
                 <label>Profit Share %<input type="number" min="0" max="100" step="0.01" [(ngModel)]="partner.profitShare" [disabled]="!isEditing" placeholder="0" /></label>
                 <label>Status<app-select ariaLabel="Partner status" [options]="partnerStatusOptions" [(ngModel)]="partner.status" [disabled]="!isEditing"></app-select></label>
