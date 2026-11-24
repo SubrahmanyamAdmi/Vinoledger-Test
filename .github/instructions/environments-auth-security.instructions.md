@@ -14,11 +14,11 @@ description: "Use when changing environments, Firebase config, deployment, fires
 - Keep all seven `firebaseConfig` fields from the same Firebase web app. Mixing values from two projects causes auth and Firestore errors.
 
 ## How login and roles work
-- Firebase Auth only verifies the email and password. Roles are NOT in Firebase Auth or custom claims.
-- Login (`AuthService.login`) looks the typed ID up in the `registeredAccounts` and `users` collections. These hold `{ user: { role, shopId, ... }, password }`. The role comes from that Firestore profile.
-- `ensureFirebaseAuthUser` creates the Firebase Auth user on first login if it does not exist.
-- For plain-email logins the role comes from `users/{uid}.role`. If that is missing, `deriveRoleFromEmail` guesses from the email text ("admin", "owner"). Do not rely on this in production.
-- A new production project has no accounts. At least one `Admin` record must exist in `registeredAccounts` (copy it with the migration script, or create `registeredAccounts/<id>` by hand) before anyone can log in. Admins then register owners and cashiers in the app.
+- Firebase Auth verifies the email and password. The client never compares, creates, or persists a password.
+- Login accepts the user's email and authenticates with `signInWithEmailAndPassword`. It then loads a role/profile from `users/{uid}` or the profile matching the authenticated email. Missing profiles are rejected; roles are never guessed from email text.
+- Admin shop registration writes shop and user profile records only. It does not create Firebase Auth users or passwords. Provision each account through a trusted Admin SDK backend, or through a controlled Firebase Console process, and use Firebase Auth password-reset emails to let users set their own password.
+- Do not restore `registeredAccounts` as an authentication source. The legacy collection stored plaintext passwords and is excluded from `scripts/migrate-firestore.mjs`.
+- Existing legacy Firestore `registeredAccounts` documents must be deleted separately using an authorized Firebase Admin process/console. Startup removes old `password:*` localStorage keys and strips password fields from the old local registered-account cache, but cannot delete remote Firestore data.
 - Roles are enforced only in the client (`authGuard`, `roleGuard`, `AppComponent` navigation).
 
 ## Session management
@@ -29,7 +29,7 @@ description: "Use when changing environments, Firebase config, deployment, fires
 
 ## Known security gaps (open items before real production use)
 - `firestore.rules` is currently `allow read, write: if true`. It is open to anyone who knows the project ID. Do not treat the production database as secure until this is replaced.
-- Passwords are stored in plain text in Firestore (`registeredAccounts`) and in `localStorage` (`password:*`).
+- Existing Firestore `registeredAccounts` documents may still contain plaintext passwords until explicitly deleted. Do not migrate this collection; purge it from every Firebase project and reset affected users' passwords.
 - Any user can edit their own `users/{uid}.role`, and nothing server-side checks roles.
-- `seedRegisteredAccounts` and `seedTestData` in `auth.service.ts` add demo accounts and passwords (for example `admin123`, `40`). Disable them in production builds.
-- Planned fix: set the role as a Firebase custom claim (Admin SDK or Cloud Function, needs the Blaze plan) and write rules on `request.auth.token.role` and `shopId`. Free-plan alternative: rules read `users/{uid}.role` and clients cannot write that field. Replace plain-text passwords at the same time, and rework the rules together with the login flow, because tightening the rules alone breaks the current login (it reads `registeredAccounts` before the user is signed in).
+- The app does not create demo authentication accounts. Provision roles and accounts through a trusted process.
+- Planned fix: set the role as a Firebase custom claim (Admin SDK or Cloud Function, needs the Blaze plan) and write rules on `request.auth.token.role` and `shopId`. Free-plan alternative: rules read `users/{uid}.role` and clients cannot write that field. Complete this together with a trusted account-provisioning backend before production.

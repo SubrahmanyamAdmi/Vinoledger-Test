@@ -3,7 +3,7 @@
     <div>
       <p class="eyebrow">Shop administration</p>
       <h1>Register New Owner</h1>
-      <p class="subtitle">Create the shop account, owner access and as many cashier logins as needed.</p>
+      <p class="subtitle">Create a shop profile and owner/cashier account profiles.</p>
     </div>
     <button type="button" class="app-back-btn" (click)="goBack()">
       <app-icon name="chevron-left"></app-icon>
@@ -11,9 +11,9 @@
     </button>
   </header>
 
-  <form *ngIf="!credentials.length" (ngSubmit)="register()" #registrationForm="ngForm">
+  <form *ngIf="!profiles.length" (ngSubmit)="register()" #registrationForm="ngForm">
     <section class="form-section">
-      <div class="section-heading"><span>01</span><div><h2>Shop details</h2><p>The shop ID becomes the basis for every generated login.</p></div></div>
+      <div class="section-heading"><span>01</span><div><h2>Shop details</h2><p>The shop ID is used as an account reference.</p></div></div>
       <div class="field-grid">
         <label>Shop name<input name="shopName" [(ngModel)]="shopName" required placeholder="e.g. Store name" /></label>
         <label>Shop ID<input name="shopId" [(ngModel)]="shopId" required placeholder="e.g. KKD42" /></label>
@@ -33,7 +33,7 @@
     </section>
 
     <section class="form-section cashier-section">
-      <div class="section-heading"><span>03</span><div><h2>Cashier details</h2><p>Add one or more cashiers for this shop. Each cashier receives a separate login.</p></div></div>
+      <div class="section-heading"><span>03</span><div><h2>Cashier details</h2><p>Add one or more cashier profiles for this shop.</p></div></div>
       <div class="cashier-controls">
         <label>Number of cashiers<input name="cashierCount" type="number" min="1" max="50" [(ngModel)]="cashierCount" (ngModelChange)="updateCashierCount()" required /></label>
         <button type="button" class="secondary-btn add-cashier-btn" (click)="addCashier()">＋ Add cashier</button>
@@ -66,20 +66,20 @@
 
     <div class="form-footer">
       <p class="error" *ngIf="error">{{ error }}</p>
-      <div><button type="button" class="secondary-btn" (click)="reset()">Clear form</button><button type="submit" class="primary-btn" [disabled]="registrationForm.invalid || (mrpMode === 'override' && !mrpSourceShopId)">Register shop and generate access</button></div>
+      <div><button type="button" class="secondary-btn" (click)="reset()">Clear form</button><button type="submit" class="primary-btn" [disabled]="registrationForm.invalid || (mrpMode === 'override' && !mrpSourceShopId)">Register shop profiles</button></div>
     </div>
   </form>
 
-  <section *ngIf="credentials.length" class="success-panel">
+  <section *ngIf="profiles.length" class="success-panel">
     <div class="success-mark">✓</div>
     <p class="eyebrow">Registration complete</p>
-    <h2>{{ shopId.toUpperCase() }} is ready for account management</h2>
+    <h2>{{ shopId.toUpperCase() }} profiles are ready for account setup</h2>
     <p class="warning-note" *ngIf="mrpWarning">{{ mrpWarning }}</p>
-    <p class="success-copy">Save these credentials securely. The owner and cashiers can use them to sign in and work with this shop.</p>
+    <p class="success-copy">No passwords were created or saved. Before these users can sign in, provision each email in Firebase Authentication through the trusted admin process and send a password reset email.</p>
     <div class="credential-list">
-      <article *ngFor="let credential of credentials" class="credential-card">
-        <span class="role-label">{{ credential.role }}</span><h3>{{ credential.name }}</h3>
-        <dl><dt>User ID</dt><dd>{{ credential.userId }}</dd><dt>Password</dt><dd>{{ credential.password }}</dd><dt>Email</dt><dd>{{ credential.email }}</dd></dl>
+      <article *ngFor="let profile of profiles" class="credential-card">
+        <span class="role-label">{{ profile.role }}</span><h3>{{ profile.name }}</h3>
+        <dl><dt>Account reference</dt><dd>{{ profile.userId }}</dd><dt>Email</dt><dd>{{ profile.email }}</dd></dl>
       </article>
     </div>
     <div class="success-actions"><button class="primary-btn" (click)="goBack()">Go to dashboard</button><button class="secondary-btn" (click)="reset()">Register another shop</button></div>

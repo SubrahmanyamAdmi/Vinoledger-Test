@@ -22,7 +22,6 @@ const destConfig = {
 };
 
 const COLLECTIONS = [
-  'registeredAccounts',
   'shops',
   'users',
   'sales',

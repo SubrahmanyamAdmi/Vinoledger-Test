@@ -24,7 +24,7 @@ export class ProfileSettingsComponent {
 
   constructor(public auth: AuthService, private router: Router) {}
 
-  updatePassword() {
+  async updatePassword() {
     this.message = '';
     this.error = '';
 
@@ -38,8 +38,15 @@ export class ProfileSettingsComponent {
       return;
     }
 
-    if (!this.auth.updatePassword(this.currentPassword, this.newPassword)) {
-      this.error = 'Current password is incorrect.';
+    try {
+      await this.auth.updatePassword(this.currentPassword, this.newPassword);
+    } catch (error) {
+      const code = typeof error === 'object' && error !== null && 'code' in error
+        ? String(error.code)
+        : '';
+      this.error = code === 'auth/wrong-password' || code === 'auth/invalid-credential'
+        ? 'Current password is incorrect.'
+        : error instanceof Error ? error.message : 'Unable to update the password.';
       return;
     }
 

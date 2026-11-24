@@ -41,12 +41,12 @@
       </div>
 
       <div class="field-wrap">
-        <label class="field-label">Email Address or User ID</label>
+        <label class="field-label">Email Address</label>
         <div class="input-shell">
           <span class="input-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-11zm2.2-.5 6.8 5.2 6.8-5.2H6.2zm13.3 1.8-6.77 5.17a1 1 0 0 1-1.26 0L5.5 7.8v9.7c0 .28.22.5.5.5h12c.28 0 .5-.22.5-.5V7.8z" fill="currentColor"/></svg>
           </span>
-          <input formControlName="email" type="text" placeholder="admin@vinoleger.com or SHOPID-OWNER" />
+          <input formControlName="email" type="email" placeholder="name@example.com" autocomplete="username" />
         </div>
       </div>
 
@@ -56,7 +56,7 @@
           <span class="input-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M17 9V7A5 5 0 0 0 7 7v2H5v11h14V9h-2zm-8 0V7a3 3 0 0 1 6 0v2H9zm7 2h2v7H6v-7h2v-1h8v1z" fill="currentColor"/></svg>
           </span>
-          <input formControlName="password" [type]="showPassword ? 'text' : 'password'" placeholder="••••••••" />
+          <input formControlName="password" [type]="showPassword ? 'text' : 'password'" placeholder="••••••••" autocomplete="current-password" />
           <button type="button" class="toggle-password" [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'" [attr.aria-pressed]="showPassword" (click)="togglePasswordVisibility()">
             <svg viewBox="0 0 24 24"><path d="M12 5c5.2 0 9.6 3.95 10.8 9-1.2 5.05-5.6 9-10.8 9S2.4 19.05 1.2 14C2.4 8.95 6.8 5 12 5zm0 2.2c-4.1 0-7.55 2.92-8.56 6.8 1.01 3.88 4.46 6.8 8.56 6.8s7.55-2.92 8.56-6.8C19.55 10.12 16.1 7.2 12 7.2zm0 2.3a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="currentColor"/></svg>
           </button>
@@ -83,4 +83,3 @@
     </div>
   </div>
 </div>
-

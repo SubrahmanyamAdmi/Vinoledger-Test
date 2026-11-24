@@ -20,8 +20,8 @@ export class LoginComponent {
   selectedRole: 'Admin' | 'Owner' | 'User' = 'Owner';
 
   loginForm: UntypedFormGroup = this.fb.group({
-    email: ['40', [Validators.required]],
-    password: ['40', [Validators.required]],
+    email: ['', [Validators.required]],
+    password: ['', [Validators.required]],
   });
 
   loading = false;

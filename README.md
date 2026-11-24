@@ -11,7 +11,9 @@ The application uses Firebase Authentication and Cloud Firestore. Before using r
 5. Create the first authenticated admin user, then create its Firestore document at `users/{firebaseUid}` with `{ "role": "Admin", "name": "...", "email": "..." }`.
 6. Deploy the security rules from this project with `firebase deploy --only firestore:rules` after installing and logging into the Firebase CLI.
 
-The registration screen writes the shop to `shops/{SHOP_ID}` and owner/cashier profiles to `users/{USER_ID}`. Production login credentials should be created through a Firebase Admin SDK callable Cloud Function; do not store passwords in Firestore or rely on the current local demo-account fallback for production.
+The registration screen writes the shop to `shops/{SHOP_ID}` and owner/cashier profiles to `users/{USER_ID}`. Provision Firebase Authentication users through a trusted Firebase Admin SDK callable Cloud Function; never store passwords in Firestore or rely on client-side account creation for production.
+
+Login uses Firebase Authentication with the user's email. Shop registration creates profile records only; a trusted administrator must provision each owner/cashier in Firebase Authentication and send a password-reset email before they can sign in. The app never generates or stores account passwords. Legacy `registeredAccounts` records are not used or migrated; delete any old records from each Firebase project and require password resets for affected accounts.
 
 ## MRP catalog model
 

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService, GeneratedCredential, ShopPersonRegistration, ShopRegistration } from '../../services/auth.service';
+import { AuthService, ShopAccountProfile, ShopPersonRegistration, ShopRegistration } from '../../services/auth.service';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { AppDateInputComponent } from '../../shared/date-input/date-input.component';
 import { AppSelectComponent, AppSelectOption } from '../../shared/select/select.component';
@@ -32,7 +32,7 @@ export class AdminRegisterOwnerComponent {
   owner: PersonForm = this.emptyPerson();
   cashierCount = 2;
   cashiers: PersonForm[] = [this.emptyPerson(), this.emptyPerson()];
-  credentials: GeneratedCredential[] = [];
+  profiles: ShopAccountProfile[] = [];
   error = '';
   mrpMode: 'global' | 'override' = 'global';
   mrpSourceShopId = '';
@@ -74,7 +74,7 @@ export class AdminRegisterOwnerComponent {
     };
 
     try {
-      this.credentials = (await this.auth.registerShop(registration)).credentials;
+      this.profiles = (await this.auth.registerShop(registration)).profiles;
     } catch (error) {
       this.error = error instanceof Error ? error.message : 'Unable to register this shop.';
       return;
@@ -97,7 +97,7 @@ export class AdminRegisterOwnerComponent {
     this.owner = this.emptyPerson();
     this.cashierCount = 2;
     this.cashiers = [this.emptyPerson(), this.emptyPerson()];
-    this.credentials = [];
+    this.profiles = [];
     this.error = '';
     this.mrpMode = 'global';
     this.mrpSourceShopId = '';
